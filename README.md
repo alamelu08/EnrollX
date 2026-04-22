@@ -46,6 +46,6 @@ An intuitive and scalable course registration platform built to modernize univer
    ```bash
    npm run dev
    ```
-   The frontend will be available at `http://localhost:5173`.
+   
 
 
