@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # University Course Registration System
 
 A full-stack application built with React (Vite), Node.js (Express), and PostgreSQL. It features a role-based authentication system for Students and Admins (Faculty).
@@ -60,3 +61,7 @@ A full-stack application built with React (Vite), Node.js (Express), and Postgre
 - **User Authentication:** JWT-based login and registration.
 - **Role-Based Access Control:** Distinct views and protected routes for `student` and `admin`.
 - **Dashboards:** Placeholder student and admin dashboards to be expanded with course management features.
+=======
+# EnrollX
+An intuitive and scalable course registration platform built to modernize university enrollment systems. It features a clean UI, efficient backend processing, and role-based access control for students and administrators. Designed as a real-world academic management solution.
+>>>>>>> b99c939a19b84f5ea3830a612887716b9016ff9b
