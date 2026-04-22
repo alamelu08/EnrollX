@@ -1,0 +1,20 @@
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(100) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  role VARCHAR(20) NOT NULL CHECK (role IN ('student', 'admin')),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE courses (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  code VARCHAR(50) UNIQUE NOT NULL,
+  faculty_name VARCHAR(255) NOT NULL,
+  schedule VARCHAR(255) NOT NULL,
+  credits INTEGER NOT NULL,
+  max_capacity INTEGER NOT NULL,
+  syllabus TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
