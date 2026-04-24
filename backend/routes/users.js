@@ -20,7 +20,7 @@ router.get('/profile', protect, async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    console.error(error.message);
+    console.error('GET Profile Error:', error.message);
     res.status(500).send('Server Error');
   }
 });
@@ -46,7 +46,7 @@ router.put('/profile', protect, async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    console.error(error.message);
+    console.error('PUT Profile Error:', error.message);
     res.status(500).send('Server Error');
   }
 });

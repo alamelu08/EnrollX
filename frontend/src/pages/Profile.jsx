@@ -13,6 +13,7 @@ const Profile = ({ theme, toggleTheme }) => {
     address: '',
     designation: ''
   });
+  const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState(null);
 
   const axiosConfig = {
@@ -49,6 +50,7 @@ const Profile = ({ theme, toggleTheme }) => {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       const res = await axios.put('http://localhost:5000/api/users/profile', formData, axiosConfig);
       setProfile(res.data);
@@ -57,6 +59,8 @@ const Profile = ({ theme, toggleTheme }) => {
     } catch (err) {
       console.error('Error updating profile:', err);
       showToast('error', 'Error updating profile');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -106,7 +110,6 @@ const Profile = ({ theme, toggleTheme }) => {
           </div>
 
           <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-            <p style={{ margin: '0.5rem 0' }}><strong>ID Number:</strong> {profile.id}</p>
             <p style={{ margin: '0.5rem 0' }}><strong>Name:</strong> {profile.name}</p>
             <p style={{ margin: '0.5rem 0' }}><strong>Email:</strong> {profile.email}</p>
             <p style={{ margin: '0.5rem 0' }}><strong>Role:</strong> {isFaculty ? 'Faculty' : 'Student'}</p>
@@ -129,8 +132,12 @@ const Profile = ({ theme, toggleTheme }) => {
                 </div>
               )}
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <button type="submit" className="btn" style={{ flex: 1 }}>Save Changes</button>
-                <button type="button" className="btn" style={{ flex: 1, backgroundColor: '#6b7280' }} onClick={() => setIsEditing(false)}>Cancel</button>
+                <button type="submit" className="btn" style={{ flex: 1 }} disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button type="button" className="btn" style={{ flex: 1, backgroundColor: '#6b7280' }} onClick={() => setIsEditing(false)} disabled={isSaving}>
+                  Cancel
+                </button>
               </div>
             </form>
           ) : (
