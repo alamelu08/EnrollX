@@ -6,6 +6,7 @@ const pool = require('./db');
 const authRoutes = require('./routes/auth');
 const coursesRoutes = require('./routes/courses');
 const registrationsRoutes = require('./routes/registrations');
+const usersRoutes = require('./routes/users');
 
 const app = express();
 
@@ -19,6 +20,7 @@ pool.query('SELECT NOW()')
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', coursesRoutes);
 app.use('/api/registrations', registrationsRoutes);
+app.use('/api/users', usersRoutes);
 
 app.get('/', (req, res) => {
   res.send('API is running...');

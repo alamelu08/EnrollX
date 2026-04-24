@@ -10,8 +10,13 @@ const router = express.Router();
 router.get('/my', protect, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT r.id AS registration_id, r.status, r.created_at,
-              c.id, c.name, c.code, c.faculty_name, c.schedule, c.credits, c.max_capacity, c.enrolled
+      `SELECT r.id AS registration_id, r.status, r.grade, r.created_at,
+              c.id, c.name, c.code, c.faculty_name, c.schedule, c.credits, c.max_capacity, c.enrolled,
+              COALESCE(
+                (SELECT json_agg(json_build_object('test_name', tg.test_name, 'grade', tg.grade))
+                 FROM test_grades tg WHERE tg.registration_id = r.id),
+                '[]'::json
+              ) as test_grades
        FROM registrations r
        JOIN courses c ON r.course_id = c.id
        WHERE r.student_id = $1

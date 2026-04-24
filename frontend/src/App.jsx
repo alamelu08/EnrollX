@@ -1,11 +1,28 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import StudentDashboard from './pages/StudentDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.body.classList.add('dark-theme');
+    } else {
+      document.body.classList.remove('dark-theme');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
   return (
     <Router>
       <div className="App">
@@ -18,7 +35,7 @@ function App() {
             path="/student-dashboard" 
             element={
               <ProtectedRoute allowedRoles={['student']}>
-                <StudentDashboard />
+                <StudentDashboard theme={theme} toggleTheme={toggleTheme} />
               </ProtectedRoute>
             } 
           />
@@ -27,7 +44,16 @@ function App() {
             path="/admin-dashboard" 
             element={
               <ProtectedRoute allowedRoles={['admin']}>
-                <AdminDashboard />
+                <AdminDashboard theme={theme} toggleTheme={toggleTheme} />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute allowedRoles={['student', 'admin']}>
+                <Profile theme={theme} toggleTheme={toggleTheme} />
               </ProtectedRoute>
             } 
           />

@@ -4,7 +4,7 @@ import axios from 'axios';
 
 const API = 'http://localhost:5000/api';
 
-const StudentDashboard = () => {
+const StudentDashboard = ({ theme, toggleTheme }) => {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user'));
 
@@ -112,7 +112,11 @@ const StudentDashboard = () => {
       <header className="dashboard-header">
         <h1>Student Dashboard</h1>
         <div className="user-info">
+          <button onClick={toggleTheme} className="btn" style={{ width: 'auto', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-color)' }}>
+            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+          </button>
           <span>Welcome, {user?.name}</span>
+          <button onClick={() => navigate('/profile')} className="btn" style={{ width: 'auto', background: '#3b82f6' }}>My Profile</button>
           <button onClick={handleLogout} className="btn btn-logout">Logout</button>
         </div>
       </header>
@@ -265,6 +269,20 @@ const StudentDashboard = () => {
                           <p style={{ margin: '0.3rem 0', fontSize: '0.85rem', color: '#374151' }}>👨‍🏫 {reg.faculty_name}</p>
                           <p style={{ margin: '0.3rem 0', fontSize: '0.85rem', color: '#374151' }}>🗓️ {reg.schedule}</p>
                           <p style={{ margin: '0.3rem 0', fontSize: '0.85rem', color: '#374151' }}>📊 {reg.credits} Credits</p>
+                          <div style={{ margin: '0.3rem 0', fontSize: '0.85rem', color: '#374151' }}>
+                            <span style={{ fontWeight: 'bold' }}>🎓 Grades: </span>
+                            {(!reg.test_grades || reg.test_grades.length === 0) ? (
+                              <span style={{ color: '#9ca3af', fontWeight: 'bold' }}>Not Graded Yet</span>
+                            ) : (
+                              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                                {reg.test_grades.map((tg, idx) => (
+                                  <span key={idx} style={{ background: '#e0e7ff', color: '#4f46e5', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600' }}>
+                                    {tg.test_name}: {tg.grade}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                           <button
                             className="btn"
                             onClick={() => handleDrop(reg.id)}

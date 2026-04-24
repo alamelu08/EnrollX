@@ -34,8 +34,8 @@ router.post('/', protect, admin, async (req, res) => {
     }
 
     const newCourse = await pool.query(
-      'INSERT INTO courses (name, code, faculty_name, schedule, credits, max_capacity, syllabus) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [name, code, faculty_name, schedule, credits, max_capacity, syllabus || '']
+      'INSERT INTO courses (name, code, faculty_name, schedule, credits, max_capacity, syllabus, faculty_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [name, code, faculty_name, schedule, credits, max_capacity, syllabus || '', req.user.id]
     );
 
     res.status(201).json(newCourse.rows[0]);
@@ -102,6 +102,90 @@ router.delete('/:id', protect, admin, async (req, res) => {
     await pool.query('DELETE FROM courses WHERE id = $1', [id]);
 
     res.json({ message: 'Course removed' });
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   GET /api/courses/:id/students
+// @desc    Get all students enrolled in a course (for grading)
+// @access  Private/Admin (Course Faculty only)
+router.get('/:id/students', protect, admin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const course = await pool.query('SELECT * FROM courses WHERE id = $1', [id]);
+    if (course.rows.length === 0) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+    
+    if (course.rows[0].faculty_id !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to manage grades for this course' });
+    }
+
+    const students = await pool.query(
+      `SELECT r.id as registration_id, r.status, r.grade, u.id as student_id, u.name, u.email,
+              COALESCE(
+                (SELECT json_agg(json_build_object('test_name', tg.test_name, 'grade', tg.grade))
+                 FROM test_grades tg WHERE tg.registration_id = r.id),
+                '[]'::json
+              ) as test_grades
+       FROM registrations r 
+       JOIN users u ON r.student_id = u.id 
+       WHERE r.course_id = $1 AND r.status != 'dropped'`,
+      [id]
+    );
+
+    res.json(students.rows);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT /api/courses/:id/students/:studentId/grade
+// @desc    Update a student's grade for a specific test
+// @access  Private/Admin (Course Faculty only)
+router.put('/:id/students/:studentId/grade', protect, admin, async (req, res) => {
+  const { id, studentId } = req.params;
+  const { test_name, grade } = req.body;
+
+  if (!test_name || !grade) {
+    return res.status(400).json({ message: 'Please provide test_name and grade' });
+  }
+
+  try {
+    const course = await pool.query('SELECT * FROM courses WHERE id = $1', [id]);
+    if (course.rows.length === 0) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+
+    if (course.rows[0].faculty_id !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to manage grades for this course' });
+    }
+
+    // Get registration ID
+    const regResult = await pool.query(
+      "SELECT id FROM registrations WHERE course_id = $1 AND student_id = $2 AND status != 'dropped'",
+      [id, studentId]
+    );
+
+    if (regResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Registration not found' });
+    }
+    
+    const registrationId = regResult.rows[0].id;
+
+    const result = await pool.query(
+      `INSERT INTO test_grades (registration_id, test_name, grade)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (registration_id, test_name)
+       DO UPDATE SET grade = EXCLUDED.grade
+       RETURNING *`,
+      [registrationId, test_name, grade]
+    );
+
+    res.json(result.rows[0]);
   } catch (error) {
     console.error(error.message);
     res.status(500).send('Server Error');

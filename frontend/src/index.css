@@ -139,3 +139,39 @@ body {
   margin-bottom: 1rem;
   font-size: 1.25rem;
 }
+
+/* Dark Theme Variables */
+body.dark-theme {
+  --bg-color: #111827;
+  --text-color: #f9fafb;
+  --card-bg: #1f2937;
+  --border-color: #374151;
+}
+
+body.dark-theme input,
+body.dark-theme select,
+body.dark-theme textarea {
+  background-color: #374151;
+  color: #f9fafb;
+  border-color: #4b5563;
+}
+
+body.dark-theme input::placeholder {
+  color: #9ca3af;
+}
+
+body.dark-theme table th {
+  color: #d1d5db;
+}
+
+body.dark-theme table td {
+  color: #e5e7eb;
+}
+
+body.dark-theme .btn-logout {
+  background-color: #b91c1c;
+}
+
+body.dark-theme .btn-logout:hover {
+  background-color: #991b1b;
+}
