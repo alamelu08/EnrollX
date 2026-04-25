@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>University Attendance Portal</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap');
+
+    :root {
+      --bg: #f4f7f4;
+      --ink: #0f2a2e;
+      --muted: #5a6b6f;
+      --card: #ffffff;
+      --accent: #1b8a78; */
+      --accent-soft: #d6f3ed;
+      --warn: #f3a712;
+      --danger: #d7263d;
+      --ring: rgba(27, 138, 120, 0.28);
+      --shadow: 0 16px 40px rgba(15, 42, 46, 0.12);
+      --radius: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Space Grotesk', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 10%, #d6ebe5 0, transparent 32%),
+        radial-gradient(circle at 94% 92%, #b8dbd3 0, transparent 30%),
+        linear-gradient(165deg, #f8fbf9 0%, #ecf4ef 45%, #e6efe8 100%);
+      display: flex;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .shell {
+      width: min(980px, 100%);
+      display: grid;
+      gap: 16px;
+      align-content: start;
+      animation: rise 550ms ease-out;
+    }
+
+    .hero {
+      background: linear-gradient(115deg, #12353b, #1b5f57 54%, #237c68);
+      color: #f4fffd;
+      border-radius: calc(var(--radius) + 6px);
+      padding: clamp(22px, 4vw, 34px);
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .hero::after {
+      content: '';
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.22) 0, rgba(255, 255, 255, 0.02) 66%, transparent 70%);
+      right: -40px;
+      top: -40px;
+    }
+
+    .title {
+      margin: 0 0 10px;
+      font-family: 'Fraunces', serif;
+      font-size: clamp(1.6rem, 2.8vw, 2.3rem);
+      line-height: 1.15;
+      letter-spacing: 0.02em;
+      max-width: 16ch;
+    }
+
+    .subtitle {
+      margin: 0;
+      max-width: 62ch;
+      color: #c5ece5;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: clamp(16px, 2.2vw, 24px);
+      border: 1px solid #deebe7;
+      animation: fade 500ms ease-out both;
+    }
+
+    .card:nth-child(2) {
+      animation-delay: 90ms;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1.1rem;
+      letter-spacing: 0.02em;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      font-weight: 500;
+    }
+
+    input,
+    select {
+      width: 100%;
+      border: 1px solid #c7dad5;
+      border-radius: 12px;
+      padding: 11px 12px;
+      font: inherit;
+      outline: none;
+      transition: border-color 160ms, box-shadow 160ms;
+      background: #fbfefd;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--ring);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 16px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 130ms ease, opacity 130ms ease;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #f6fffd;
+    }
+
+    .btn-secondary {
+      background: #e8f3ef;
+      color: #204b46;
+    }
+
+    .result {
+      display: none;
+      margin-top: 14px;
+      background: #f6fbf8;
+      border: 1px solid #d3e7e1;
+      border-radius: 14px;
+      padding: 14px;
+      gap: 12px;
+    }
+
+    .result.show {
+      display: grid;
+    }
+
+    .topline {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: #126052;
+      white-space: nowrap;
+    }
+
+    .bar {
+      height: 12px;
+      border-radius: 999px;
+      background: #dfebe7;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .fill {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #2ac58f, #1b8a78);
+      transition: width 360ms ease;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      font-size: 0.92rem;
+    }
+
+    .stat {
+      background: #eef6f3;
+      border: 1px solid #d8e9e4;
+      border-radius: 10px;
+      padding: 9px;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 1rem;
+    }
+
+    .small {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 0.93rem;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 10px 8px;
+      border-bottom: 1px solid #e3efeb;
+    }
+
+    th {
+      color: #4b6266;
+      font-weight: 600;
+    }
+
+    .status-ok {
+      color: #16794f;
+      font-weight: 600;
+    }
+
+    .status-low {
+      color: var(--danger);
+      font-weight: 600;
+    }
+
+    .status-mid {
+      color: #9a6c0f;
+      font-weight: 600;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 14px;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      th,
+      td {
+        padding: 8px 4px;
+      }
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fade {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <h1 class="title">Student Attendance Check</h1>
+      <p class="subtitle">Quickly view attendance status by student roll number and semester. You can later connect this page to your actual backend and authentication flow.</p>
+    </section>
+
+    <section class="layout">
+      <article class="card">
+        <h2>Lookup</h2>
+        <form id="attendanceForm" class="stack" novalidate>
+          <div>
+            <label for="university">University</label>
+            <select id="university" required>
+              <option value="">Select university</option>
+              <option>National University</option>
+              <option>City Technical University</option>
+              <option>State Engineering College</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="rollNo">Student Roll Number</label>
+            <input id="rollNo" type="text" placeholder="Ex: NUT-2026-014" required />
+          </div>
+
+          <div>
+            <label for="semester">Semester</label>
+            <select id="semester" required>
+              <option value="">Select semester</option>
+              <option>Semester 1</option>
+              <option>Semester 2</option>
+              <option>Semester 3</option>
+              <option>Semester 4</option>
+              <option>Semester 5</option>
+              <option>Semester 6</option>
+              <option>Semester 7</option>
+              <option>Semester 8</option>
+            </select>
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="btn-primary">Check Attendance</button>
+            <button type="button" id="resetBtn" class="btn-secondary">Reset</button>
+          </div>
+        </form>
+
+        <div id="result" class="result" aria-live="polite">
+          <div class="topline">
+            <strong id="studentLabel">Student</strong>
+            <span id="statusPill" class="pill">Eligible</span>
+          </div>
+          <div class="bar"><div id="attendanceFill" class="fill"></div></div>
+          <div class="stats">
+            <div class="stat"><span>Attendance</span><strong id="attendancePct">0%</strong></div>
+            <div class="stat"><span>Classes Attended</span><strong id="attended">0</strong></div>
+            <div class="stat"><span>Total Classes</span><strong id="total">0</strong></div>
+          </div>
+          <p id="remark" class="small"></p>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>Course-Wise Snapshot</h2>
+        <p class="small">This table currently uses demo data. Replace it with API results when integrating.</p>
+        <table aria-label="Course attendance details">
+          <thead>
+            <tr>
+              <th>Course</th>
+              <th>Attended</th>
+              <th>Total</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="courseTableBody">
+            <tr>
+              <td>Data Structures</td>
+              <td>31</td>
+              <td>36</td>
+              <td class="status-ok">Good</td>
+            </tr>
+            <tr>
+              <td>DBMS</td>
+              <td>26</td>
+              <td>35</td>
+              <td class="status-mid">Watch</td>
+            </tr>
+            <tr>
+              <td>Operating Systems</td>
+              <td>23</td>
+              <td>34</td>
+              <td class="status-low">Low</td>
+            </tr>
+            <tr>
+              <td>Discrete Math</td>
+              <td>29</td>
+              <td>33</td>
+              <td class="status-ok">Good</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById('attendanceForm');
+    const resultBox = document.getElementById('result');
+    const fill = document.getElementById('attendanceFill');
+    const attendancePct = document.getElementById('attendancePct');
+    const attended = document.getElementById('attended');
+    const total = document.getElementById('total');
+    const studentLabel = document.getElementById('studentLabel');
+    const statusPill = document.getElementById('statusPill');
+    const remark = document.getElementById('remark');
+    const resetBtn = document.getElementById('resetBtn');
+
+    function getStatus(percent) {
+      if (percent >= 75) {
+        return { label: 'Eligible', className: 'ok', note: 'You meet the minimum attendance requirement.' };
+      }
+      if (percent >= 65) {
+        return { label: 'Warning', className: 'mid', note: 'Attend upcoming classes to avoid shortage.' };
+      }
+      return { label: 'Shortage', className: 'low', note: 'Attendance is below requirement; contact your department.' };
+    }
+
+    function setPillStyle(type) {
+      if (type === 'ok') {
+        statusPill.style.background = '#d6f3ed';
+        statusPill.style.color = '#126052';
+      } else if (type === 'mid') {
+        statusPill.style.background = '#fff2d5';
+        statusPill.style.color = '#8f6207';
+      } else {
+        statusPill.style.background = '#fde1e5';
+        statusPill.style.color = '#9f2030';
+      }
+    }
+
+    // Demo computation to keep the page functional before backend integration.
+    function generateAttendance(rollNo) {
+      const code = Array.from(rollNo).reduce((sum, c) => sum + c.charCodeAt(0), 0);
+      const totalClasses = 34 + (code % 10);
+      const attendedClasses = Math.max(0, Math.min(totalClasses, Math.floor(totalClasses * (0.58 + (code % 35) / 100))));
+      const percent = Math.round((attendedClasses / totalClasses) * 100);
+      return { totalClasses, attendedClasses, percent };
+    }
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+
+      const university = document.getElementById('university').value.trim();
+      const rollNo = document.getElementById('rollNo').value.trim();
+      const semester = document.getElementById('semester').value.trim();
+
+      if (!university || !rollNo || !semester) {
+        alert('Please fill all required fields.');
+        return;
+      }
+
+      const data = generateAttendance(rollNo);
+      const status = getStatus(data.percent);
+
+      studentLabel.textContent = rollNo + ' • ' + semester;
+      attendancePct.textContent = data.percent + '%';
+      attended.textContent = String(data.attendedClasses);
+      total.textContent = String(data.totalClasses);
+      statusPill.textContent = status.label;
+      remark.textContent = status.note + ' University: ' + university + '.';
+
+      fill.style.width = data.percent + '%';
+      fill.style.background = status.className === 'ok'
+        ? 'linear-gradient(90deg, #2ac58f, #1b8a78)'
+        : status.className === 'mid'
+          ? 'linear-gradient(90deg, #f3c55f, #d19212)'
+          : 'linear-gradient(90deg, #f37886, #d7263d)';
+
+      setPillStyle(status.className);
+      resultBox.classList.add('show');
+    });
+
+    resetBtn.addEventListener('click', () => {
+      form.reset();
+      resultBox.classList.remove('show');
+      fill.style.width = '0%';
+    });
+  </script>
+</body>
+</html>
