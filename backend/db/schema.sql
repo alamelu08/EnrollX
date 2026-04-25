@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS users (
   phone_number VARCHAR(20),
   address     TEXT,
   designation VARCHAR(100),
+  roll_number VARCHAR(50),
+  department  VARCHAR(100),
   created_at  TIMESTAMP           DEFAULT NOW()
 );
 
@@ -27,6 +29,10 @@ CREATE TABLE IF NOT EXISTS courses (
   max_capacity  INTEGER       NOT NULL,
   enrolled      INTEGER       NOT NULL DEFAULT 0,
   syllabus      TEXT          DEFAULT '',
+  section       VARCHAR(10),
+  days          VARCHAR(100),
+  start_date    DATE,
+  time          VARCHAR(50),
   faculty_id    INTEGER       REFERENCES users(id),
   created_at    TIMESTAMP     DEFAULT NOW()
 );

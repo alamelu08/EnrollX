@@ -23,8 +23,14 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
     schedule: '',
     credits: '',
     max_capacity: '',
-    syllabus: ''
+    syllabus: '',
+    section: '',
+    days: [],
+    start_date: '',
+    time: ''
   });
+  
+  const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   const axiosConfig = {
     headers: { Authorization: `Bearer ${user?.token}` }
@@ -49,11 +55,19 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
   };
 
   const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value, type, checked } = e.target;
+    if (type === 'checkbox' && name === 'days') {
+      const updatedDays = checked 
+        ? [...formData.days, value]
+        : formData.days.filter(day => day !== value);
+      setFormData({ ...formData, days: updatedDays });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
   const resetForm = () => {
-    setFormData({ name: '', code: '', faculty_name: '', schedule: '', credits: '', max_capacity: '', syllabus: '' });
+    setFormData({ name: '', code: '', faculty_name: '', schedule: '', credits: '', max_capacity: '', syllabus: '', section: '', days: [], start_date: '', time: '' });
     setEditingCourse(null);
     setShowForm(false);
   };
@@ -67,7 +81,11 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
       schedule: course.schedule,
       credits: course.credits,
       max_capacity: course.max_capacity,
-      syllabus: course.syllabus || ''
+      syllabus: course.syllabus || '',
+      section: course.section || '',
+      days: course.days ? course.days.split(', ') : [],
+      start_date: course.start_date ? new Date(course.start_date).toISOString().split('T')[0] : '',
+      time: course.time || ''
     });
     setShowForm(true);
   };
@@ -260,16 +278,45 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
                 <input type="text" name="name" value={formData.name} onChange={handleInputChange} required />
               </div>
               <div className="form-group">
-                <label>Course Code</label>
-                <input type="text" name="code" value={formData.code} onChange={handleInputChange} required />
-              </div>
-              <div className="form-group">
                 <label>Faculty Name</label>
                 <input type="text" name="faculty_name" value={formData.faculty_name} onChange={handleInputChange} required />
               </div>
+              <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label>Course Code</label>
+                  <input type="text" name="code" value={formData.code} onChange={handleInputChange} required />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label>Section</label>
+                  <input type="text" name="section" value={formData.section} onChange={handleInputChange} required placeholder="e.g. A, 1, Morning" />
+                </div>
+              </div>
               <div className="form-group">
-                <label>Schedule (Day and Time)</label>
-                <input type="text" name="schedule" value={formData.schedule} onChange={handleInputChange} required />
+                <label>Schedule</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '0.5rem', marginBottom: '1rem' }}>
+                  {daysOfWeek.map(day => (
+                    <label key={day} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.9rem', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        name="days" 
+                        value={day} 
+                        checked={formData.days.includes(day)} 
+                        onChange={handleInputChange} 
+                      />
+                      {day}
+                    </label>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <div style={{ flex: 1 }}>
+                    <label>Start Date</label>
+                    <input type="date" name="start_date" value={formData.start_date} onChange={handleInputChange} required />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label>Time</label>
+                    <input type="time" name="time" value={formData.time} onChange={handleInputChange} required />
+                  </div>
+                </div>
               </div>
               <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1 }}>
@@ -306,6 +353,7 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
                   <thead>
                     <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
                       <th style={{ padding: '0.75rem' }}>Code</th>
+                      <th style={{ padding: '0.75rem' }}>Section</th>
                       <th style={{ padding: '0.75rem' }}>Name</th>
                       <th style={{ padding: '0.75rem' }}>Faculty</th>
                       <th style={{ padding: '0.75rem' }}>Schedule</th>
@@ -317,6 +365,7 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
                     {courses.map(course => (
                       <tr key={course.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
                         <td style={{ padding: '0.75rem' }}><strong>{course.code}</strong></td>
+                        <td style={{ padding: '0.75rem' }}>{course.section}</td>
                         <td style={{ padding: '0.75rem' }}>{course.name}</td>
                         <td style={{ padding: '0.75rem' }}>{course.faculty_name}</td>
                         <td style={{ padding: '0.75rem' }}>{course.schedule}</td>

@@ -11,7 +11,8 @@ const Profile = ({ theme, toggleTheme }) => {
   const [formData, setFormData] = useState({
     phone_number: '',
     address: '',
-    designation: ''
+    designation: '',
+    department: ''
   });
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState(null);
@@ -31,7 +32,8 @@ const Profile = ({ theme, toggleTheme }) => {
       setFormData({
         phone_number: res.data.phone_number || '',
         address: res.data.address || '',
-        designation: res.data.designation || ''
+        designation: res.data.designation || '',
+        department: res.data.department || ''
       });
     } catch (err) {
       console.error('Error fetching profile:', err);
@@ -112,6 +114,8 @@ const Profile = ({ theme, toggleTheme }) => {
           <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
             <p style={{ margin: '0.5rem 0' }}><strong>Name:</strong> {profile.name}</p>
             <p style={{ margin: '0.5rem 0' }}><strong>Email:</strong> {profile.email}</p>
+            <p style={{ margin: '0.5rem 0' }}><strong>Roll Number / ID:</strong> {profile.roll_number}</p>
+            <p style={{ margin: '0.5rem 0' }}><strong>Department:</strong> {profile.department}</p>
             <p style={{ margin: '0.5rem 0' }}><strong>Role:</strong> {isFaculty ? 'Faculty' : 'Student'}</p>
           </div>
 
@@ -131,6 +135,10 @@ const Profile = ({ theme, toggleTheme }) => {
                   <input type="text" name="designation" value={formData.designation} onChange={handleInputChange} placeholder="e.g. Professor of Computer Science" />
                 </div>
               )}
+              <div className="form-group">
+                <label>Department</label>
+                <input type="text" name="department" value={formData.department} onChange={handleInputChange} placeholder="e.g. Computer Science and Engineering" />
+              </div>
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                 <button type="submit" className="btn" style={{ flex: 1 }} disabled={isSaving}>
                   {isSaving ? 'Saving...' : 'Save Changes'}
@@ -147,6 +155,7 @@ const Profile = ({ theme, toggleTheme }) => {
               {isFaculty && (
                 <p style={{ margin: '0.75rem 0' }}><strong>Designation:</strong> {profile.designation || <span style={{ color: '#9ca3af' }}>Not provided</span>}</p>
               )}
+              <p style={{ margin: '0.75rem 0' }}><strong>Department:</strong> {profile.department || <span style={{ color: '#9ca3af' }}>Not provided</span>}</p>
             </div>
           )}
         </section>

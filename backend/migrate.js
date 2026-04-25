@@ -33,7 +33,15 @@ async function migrate() {
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number VARCHAR(20);');
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT;');
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS designation VARCHAR(100);');
-    console.log('Added profile fields to users.');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS roll_number VARCHAR(50);');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(100);');
+    console.log('Added profile fields, roll_number, and department to users.');
+
+    await pool.query('ALTER TABLE courses ADD COLUMN IF NOT EXISTS section VARCHAR(10);');
+    await pool.query('ALTER TABLE courses ADD COLUMN IF NOT EXISTS days VARCHAR(100);');
+    await pool.query('ALTER TABLE courses ADD COLUMN IF NOT EXISTS start_date DATE;');
+    await pool.query('ALTER TABLE courses ADD COLUMN IF NOT EXISTS time VARCHAR(50);');
+    console.log('Added section, days, start_date, and time to courses.');
 
     console.log('Migrations complete.');
   } catch (error) {

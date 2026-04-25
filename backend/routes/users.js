@@ -10,7 +10,7 @@ const router = express.Router();
 router.get('/profile', protect, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, name, email, role, phone_number, address, designation, created_at FROM users WHERE id = $1',
+      'SELECT id, name, email, role, phone_number, address, designation, roll_number, department, created_at FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -29,15 +29,15 @@ router.get('/profile', protect, async (req, res) => {
 // @desc    Update user profile
 // @access  Private
 router.put('/profile', protect, async (req, res) => {
-  const { phone_number, address, designation } = req.body;
+  const { phone_number, address, designation, department } = req.body;
 
   try {
     const result = await pool.query(
       `UPDATE users 
-       SET phone_number = $1, address = $2, designation = $3 
-       WHERE id = $4 
-       RETURNING id, name, email, role, phone_number, address, designation, created_at`,
-      [phone_number, address, designation, req.user.id]
+       SET phone_number = $1, address = $2, designation = $3, department = $4 
+       WHERE id = $5 
+       RETURNING id, name, email, role, phone_number, address, designation, roll_number, department, created_at`,
+      [phone_number, address, designation, department, req.user.id]
     );
 
     if (result.rows.length === 0) {

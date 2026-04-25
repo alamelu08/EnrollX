@@ -21,9 +21,9 @@ router.get('/', protect, async (req, res) => {
 // @desc    Create a course
 // @access  Private/Admin
 router.post('/', protect, admin, async (req, res) => {
-  const { name, code, faculty_name, schedule, credits, max_capacity, syllabus } = req.body;
+  const { name, code, faculty_name, schedule, credits, max_capacity, syllabus, section, days, start_date, time } = req.body;
 
-  if (!name || !code || !faculty_name || !schedule || !credits || !max_capacity) {
+  if (!name || !code || !faculty_name || !credits || !max_capacity || !section || !days || !start_date || !time) {
     return res.status(400).json({ message: 'Please provide all required fields' });
   }
 
@@ -33,9 +33,12 @@ router.post('/', protect, admin, async (req, res) => {
       return res.status(400).json({ message: 'Course with this code already exists' });
     }
 
+    const formattedDays = Array.isArray(days) ? days.join(', ') : days;
+    const formattedSchedule = schedule || `${formattedDays} | ${time} | Starts: ${start_date}`;
+
     const newCourse = await pool.query(
-      'INSERT INTO courses (name, code, faculty_name, schedule, credits, max_capacity, syllabus, faculty_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [name, code, faculty_name, schedule, credits, max_capacity, syllabus || '', req.user.id]
+      'INSERT INTO courses (name, code, faculty_name, schedule, credits, max_capacity, syllabus, faculty_id, section, days, start_date, "time") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *',
+      [name, code, faculty_name, formattedSchedule, credits, max_capacity, syllabus || '', req.user.id, section, formattedDays, start_date, time]
     );
 
     res.status(201).json(newCourse.rows[0]);
@@ -50,7 +53,7 @@ router.post('/', protect, admin, async (req, res) => {
 // @access  Private/Admin
 router.put('/:id', protect, admin, async (req, res) => {
   const { id } = req.params;
-  const { name, code, faculty_name, schedule, credits, max_capacity, syllabus } = req.body;
+  const { name, code, faculty_name, schedule, credits, max_capacity, syllabus, section, days, start_date, time } = req.body;
 
   try {
     const course = await pool.query('SELECT * FROM courses WHERE id = $1', [id]);
@@ -66,16 +69,23 @@ router.put('/:id', protect, admin, async (req, res) => {
         }
     }
 
+    const formattedDays = days ? (Array.isArray(days) ? days.join(', ') : days) : course.rows[0].days;
+    const formattedSchedule = schedule || (days || start_date || time ? `${formattedDays} | ${time || course.rows[0].time} | Starts: ${start_date || course.rows[0].start_date}` : course.rows[0].schedule);
+
     const updatedCourse = await pool.query(
-      'UPDATE courses SET name = $1, code = $2, faculty_name = $3, schedule = $4, credits = $5, max_capacity = $6, syllabus = $7 WHERE id = $8 RETURNING *',
+      'UPDATE courses SET name = $1, code = $2, faculty_name = $3, schedule = $4, credits = $5, max_capacity = $6, syllabus = $7, section = $8, days = $9, start_date = $10, "time" = $11 WHERE id = $12 RETURNING *',
       [
         name || course.rows[0].name,
         code || course.rows[0].code,
         faculty_name || course.rows[0].faculty_name,
-        schedule || course.rows[0].schedule,
+        formattedSchedule,
         credits || course.rows[0].credits,
         max_capacity || course.rows[0].max_capacity,
         syllabus !== undefined ? syllabus : course.rows[0].syllabus,
+        section || course.rows[0].section,
+        formattedDays,
+        start_date || course.rows[0].start_date,
+        time || course.rows[0].time,
         id
       ]
     );

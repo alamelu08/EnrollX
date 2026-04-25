@@ -8,11 +8,13 @@ const Register = () => {
     email: '',
     password: '',
     role: 'student', // default role
+    roll_number: '',
+    department: '',
   });
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const { name, email, password, role } = formData;
+  const { name, email, password, role, roll_number, department } = formData;
 
   const onChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -25,6 +27,8 @@ const Register = () => {
         email,
         password,
         role,
+        roll_number,
+        department,
       });
       
       localStorage.setItem('user', JSON.stringify(res.data));
@@ -73,6 +77,28 @@ const Register = () => {
             onChange={onChange}
             required
             minLength="6"
+          />
+        </div>
+        <div className="form-group">
+          <label>{role === 'admin' ? 'Employee ID' : 'Roll Number'}</label>
+          <input
+            type="text"
+            name="roll_number"
+            value={roll_number}
+            onChange={onChange}
+            required
+            placeholder={role === 'admin' ? 'Enter Employee ID' : 'Enter Roll Number'}
+          />
+        </div>
+        <div className="form-group">
+          <label>Department</label>
+          <input
+            type="text"
+            name="department"
+            value={department}
+            onChange={onChange}
+            required
+            placeholder="Enter Department"
           />
         </div>
         <div className="form-group">

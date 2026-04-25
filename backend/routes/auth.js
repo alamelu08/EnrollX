@@ -16,10 +16,10 @@ const generateToken = (id, role) => {
 // @desc    Register a new user
 // @access  Public
 router.post('/register', async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, roll_number, department } = req.body;
 
-  if (!name || !email || !password || !role) {
-    return res.status(400).json({ message: 'Please provide all required fields' });
+  if (!name || !email || !password || !role || !roll_number || !department) {
+    return res.status(400).json({ message: 'Please provide all required fields (Name, Email, Password, Role, Roll Number/ID, Department)' });
   }
 
   if (role !== 'student' && role !== 'admin') {
@@ -39,8 +39,8 @@ router.post('/register', async (req, res) => {
 
     // Insert user into db
     const newUser = await pool.query(
-      'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role',
-      [name, email, hashedPassword, role]
+      'INSERT INTO users (name, email, password, role, roll_number, department) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, role, roll_number, department',
+      [name, email, hashedPassword, role, roll_number, department]
     );
 
     const user = newUser.rows[0];
@@ -50,6 +50,8 @@ router.post('/register', async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      roll_number: user.roll_number,
+      department: user.department,
       token: generateToken(user.id, user.role),
     });
   } catch (error) {
@@ -88,6 +90,8 @@ router.post('/login', async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      roll_number: user.roll_number,
+      department: user.department,
       token: generateToken(user.id, user.role),
     });
   } catch (error) {
@@ -101,7 +105,7 @@ router.post('/login', async (req, res) => {
 // @access  Private
 router.get('/me', protect, async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, name, email, role FROM users WHERE id = $1', [req.user.id]);
+    const result = await pool.query('SELECT id, name, email, role, roll_number, department FROM users WHERE id = $1', [req.user.id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
