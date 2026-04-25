@@ -43,6 +43,17 @@ async function migrate() {
     await pool.query('ALTER TABLE courses ADD COLUMN IF NOT EXISTS time VARCHAR(50);');
     console.log('Added section, days, start_date, and time to courses.');
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS attendance (
+        id SERIAL PRIMARY KEY,
+        registration_id INTEGER REFERENCES registrations(id) ON DELETE CASCADE,
+        attended_classes INTEGER DEFAULT 0,
+        total_classes INTEGER DEFAULT 0,
+        UNIQUE(registration_id)
+      );
+    `);
+    console.log('Attendance table ensured.');
+
     console.log('Migrations complete.');
   } catch (error) {
     console.error('Error during migration:', error);

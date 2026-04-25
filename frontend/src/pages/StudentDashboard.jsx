@@ -116,6 +116,7 @@ const StudentDashboard = ({ theme, toggleTheme }) => {
             {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
           </button>
           <span>Welcome, {user?.name}</span>
+          <button onClick={() => navigate('/attendance')} className="btn" style={{ width: 'auto', background: '#10b981' }}>Attendance</button>
           <button onClick={() => navigate('/profile')} className="btn" style={{ width: 'auto', background: '#3b82f6' }}>My Profile</button>
           <button onClick={handleLogout} className="btn btn-logout">Logout</button>
         </div>

@@ -5,6 +5,7 @@ import Register from './pages/Register';
 import StudentDashboard from './pages/StudentDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
+import Attendance from './pages/Attendance';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -54,6 +55,15 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['student', 'admin']}>
                 <Profile theme={theme} toggleTheme={toggleTheme} />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/attendance" 
+            element={
+              <ProtectedRoute allowedRoles={['student', 'admin']}>
+                <Attendance theme={theme} toggleTheme={toggleTheme} />
               </ProtectedRoute>
             } 
           />

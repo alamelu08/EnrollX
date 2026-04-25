@@ -16,6 +16,10 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
   const [testColumns, setTestColumns] = useState([]);
   const [newTestName, setNewTestName] = useState('');
   
+  const [managingAttendanceFor, setManagingAttendanceFor] = useState(null);
+  const [attendanceFormData, setAttendanceFormData] = useState({});
+  const [bulkTotalClasses, setBulkTotalClasses] = useState('');
+  
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -145,6 +149,62 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
     }
   };
 
+  const handleManageAttendance = async (course) => {
+    try {
+      const res = await axios.get(`http://localhost:5000/api/courses/${course.id}/students`, axiosConfig);
+      setCourseStudents(res.data);
+      setManagingAttendanceFor(course);
+      
+      const initialAttendance = {};
+      res.data.forEach(s => {
+        initialAttendance[s.registration_id] = {
+          attended: s.attended_classes || 0,
+          total: s.total_classes || 0
+        };
+      });
+      setAttendanceFormData(initialAttendance);
+    } catch (err) {
+      console.error('Error fetching students:', err);
+      alert(err.response?.data?.message || 'Error fetching students');
+    }
+  };
+
+  const handleAttendanceChange = (registrationId, field, value) => {
+    setAttendanceFormData({
+      ...attendanceFormData,
+      [registrationId]: {
+        ...attendanceFormData[registrationId],
+        [field]: parseInt(value) || 0
+      }
+    });
+  };
+
+  const handleApplyBulkTotal = () => {
+    const total = parseInt(bulkTotalClasses) || 0;
+    const updated = { ...attendanceFormData };
+    Object.keys(updated).forEach(id => {
+      updated[id].total = total;
+    });
+    setAttendanceFormData(updated);
+  };
+
+  const handleSaveAllAttendance = async () => {
+    try {
+      const promises = Object.keys(attendanceFormData).map(registrationId => 
+        axios.put(`http://localhost:5000/api/attendance/${registrationId}`, {
+          attended_classes: attendanceFormData[registrationId].attended,
+          total_classes: attendanceFormData[registrationId].total
+        }, axiosConfig)
+      );
+      
+      await Promise.all(promises);
+      alert('All attendance records saved successfully!');
+    } catch (err) {
+      console.error('Error saving attendance:', err);
+      alert('Error saving some attendance records. Please try again.');
+    }
+  };
+
   const handleAddTestColumn = () => {
     if (!newTestName.trim()) return;
     const testName = newTestName.trim();
@@ -211,7 +271,77 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
       
       <main className="dashboard-content" style={{ display: 'block' }}>
         
-        {managingGradesFor ? (
+        {managingAttendanceFor ? (
+          <section className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2>Manage Attendance: {managingAttendanceFor.name}</h2>
+              <button className="btn" style={{ width: 'auto', backgroundColor: '#6b7280' }} onClick={() => setManagingAttendanceFor(null)}>Back to Courses</button>
+            </div>
+            {courseStudents.length === 0 ? (
+              <p>No students currently enrolled in this course.</p>
+            ) : (
+              <div>
+                <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Total Classes for All:</label>
+                    <input 
+                      type="number" 
+                      placeholder="e.g. 34" 
+                      value={bulkTotalClasses} 
+                      onChange={e => setBulkTotalClasses(e.target.value)}
+                      style={{ padding: '0.5rem', width: '80px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                    />
+                    <button onClick={handleApplyBulkTotal} className="btn" style={{ width: 'auto', background: '#3b82f6' }}>Apply to All</button>
+                  </div>
+                  <button onClick={handleSaveAllAttendance} className="btn" style={{ width: 'auto', background: '#10b981' }}>Save All Attendance</button>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                        <th style={{ padding: '0.75rem' }}>Student Name</th>
+                        <th style={{ padding: '0.75rem' }}>Attended Classes</th>
+                        <th style={{ padding: '0.75rem' }}>Total Classes</th>
+                        <th style={{ padding: '0.75rem' }}>%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {courseStudents.map(student => (
+                        <tr key={student.registration_id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '0.75rem' }}>
+                            <div style={{ fontWeight: 'bold' }}>{student.name}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{student.email}</div>
+                          </td>
+                          <td style={{ padding: '0.75rem' }}>
+                            <input 
+                              type="number" 
+                              value={attendanceFormData[student.registration_id]?.attended || 0} 
+                              onChange={(e) => handleAttendanceChange(student.registration_id, 'attended', e.target.value)}
+                              style={{ padding: '0.4rem', width: '80px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.75rem' }}>
+                            <input 
+                              type="number" 
+                              value={attendanceFormData[student.registration_id]?.total || 0} 
+                              onChange={(e) => handleAttendanceChange(student.registration_id, 'total', e.target.value)}
+                              style={{ padding: '0.4rem', width: '80px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.75rem' }}>
+                            {attendanceFormData[student.registration_id]?.total > 0 
+                              ? Math.round((attendanceFormData[student.registration_id].attended / attendanceFormData[student.registration_id].total) * 100)
+                              : 0}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </section>
+        ) : managingGradesFor ? (
           <section className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2>Manage Grades: {managingGradesFor.name}</h2>
@@ -374,7 +504,10 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
                           <button onClick={() => handleEditClick(course)} style={{ padding: '0.25rem 0.5rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
                           <button onClick={() => handleDeleteClick(course.id)} style={{ padding: '0.25rem 0.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
                           {course.faculty_id === user?.id && (
-                            <button onClick={() => handleManageGrades(course)} style={{ padding: '0.25rem 0.5rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Grades</button>
+                            <>
+                              <button onClick={() => handleManageGrades(course)} style={{ padding: '0.25rem 0.5rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Grades</button>
+                              <button onClick={() => handleManageAttendance(course)} style={{ padding: '0.25rem 0.5rem', background: '#f59e0b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Attendance</button>
+                            </>
                           )}
                         </td>
                       </tr>

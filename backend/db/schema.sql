@@ -37,6 +37,14 @@ CREATE TABLE IF NOT EXISTS courses (
   created_at    TIMESTAMP     DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS attendance (
+  id                SERIAL PRIMARY KEY,
+  registration_id   INTEGER REFERENCES registrations(id) ON DELETE CASCADE,
+  attended_classes  INTEGER DEFAULT 0,
+  total_classes     INTEGER DEFAULT 0,
+  UNIQUE(registration_id)
+);
+
 -- ── Registrations ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS registrations (
   id          SERIAL PRIMARY KEY,

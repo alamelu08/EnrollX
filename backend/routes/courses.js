@@ -135,6 +135,7 @@ router.get('/:id/students', protect, admin, async (req, res) => {
 
     const students = await pool.query(
       `SELECT r.id as registration_id, r.status, r.grade, u.id as student_id, u.name, u.email,
+              a.attended_classes, a.total_classes,
               COALESCE(
                 (SELECT json_agg(json_build_object('test_name', tg.test_name, 'grade', tg.grade))
                  FROM test_grades tg WHERE tg.registration_id = r.id),
@@ -142,6 +143,7 @@ router.get('/:id/students', protect, admin, async (req, res) => {
               ) as test_grades
        FROM registrations r 
        JOIN users u ON r.student_id = u.id 
+       LEFT JOIN attendance a ON a.registration_id = r.id
        WHERE r.course_id = $1 AND r.status != 'dropped'`,
       [id]
     );
