@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import useTheme from '../hooks/useTheme';
 
 export default function Register() {
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'student', roll_number: '', department: '' });
   const [error,   setError]   = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  useTheme(); // Initialize theme
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 

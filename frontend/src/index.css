@@ -2,35 +2,77 @@
 
 /* ─── Design Tokens ─────────────────────────────────────── */
 :root {
-  --bg:           #0f0f0f;
-  --surface:      #161616;
-  --surface-2:    #1c1c1c;
-  --surface-3:    #242424;
-  --border:       #2a2a2a;
-  --border-2:     #333333;
+  /* Dark Mode (Deep Green) */
+  --bg:           #081719;
+  --surface:      #0c2226;
+  --surface-2:    #12353b;
+  --surface-3:    #164149;
+  --border:       #1b5059;
+  --border-2:     #23636e;
 
-  --text-primary: #e8e8e8;
-  --text-secondary:#8a8a8a;
-  --text-muted:   #555555;
-  --text-disabled:#3a3a3a;
+  --text-primary: #e6f0ed;
+  --text-secondary:#a0b3b0;
+  --text-muted:   #5a6b6f;
+  --text-disabled:#3b4a4d;
 
-  --accent:       #5b6ad0;
-  --accent-dim:   rgba(91, 106, 208, 0.12);
-  --accent-hover: #6b7ae0;
+  --accent:       #1b8a78;
+  --accent-dim:   rgba(27, 138, 120, 0.15);
+  --accent-hover: #21a38f;
 
-  --green:        #3ecf8e;
-  --green-dim:    rgba(62, 207, 142, 0.1);
-  --amber:        #e9a84c;
-  --amber-dim:    rgba(233, 168, 76, 0.1);
-  --red:          #e05b5b;
-  --red-dim:      rgba(224, 91, 91, 0.1);
+  --green:        #2ac58f;
+  --green-dim:    rgba(42, 197, 143, 0.12);
+  --amber:        #f3c55f;
+  --amber-dim:    rgba(243, 197, 95, 0.12);
+  --red:          #f37886;
+  --red-dim:      rgba(243, 120, 134, 0.12);
 
-  --radius-sm:    4px;
-  --radius:       6px;
-  --radius-lg:    8px;
+  --radius-sm:    6px;
+  --radius:       10px;
+  --radius-lg:    16px;
 
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --mono: 'SF Mono', 'Fira Code', 'Fira Mono', monospace;
+}
+
+/* ─── Light Mode Override ───────────────────────────────── */
+body.light {
+  /* Light Mode (Original Attendance Theme) */
+  --bg:            #f4f7f4;
+  --surface:       #ffffff;
+  --surface-2:     #f6fbf8;
+  --surface-3:     #e8f3ef;
+  --border:        #deebe7;
+  --border-2:      #c7dad5;
+
+  --text-primary:  #0f2a2e;
+  --text-secondary:#4b6266;
+  --text-muted:    #5a6b6f;
+  --text-disabled: #a0b3b0;
+
+  --accent:        #1b8a78;
+  --accent-dim:    #d6f3ed;
+  --accent-hover:  #16794f;
+
+  --green:         #16794f;
+  --green-dim:     #d6f3ed;
+  --amber:         #9a6c0f;
+  --amber-dim:     #fff2d5;
+  --red:           #d7263d;
+  --red-dim:       #fde1e5;
+}
+
+/* inputs in light mode */
+body.light input,
+body.light select,
+body.light textarea {
+  background: #ffffff;
+  border-color: var(--border-2);
+  color: var(--text-primary);
+}
+
+body.light input::placeholder,
+body.light textarea::placeholder {
+  color: var(--text-disabled);
 }
 
 /* ─── Reset & Base ──────────────────────────────────────── */
@@ -245,26 +287,41 @@ p  { color: var(--text-secondary); font-size: 0.875rem; }
 }
 
 .topbar {
-  height: 48px;
+  height: 64px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  background: var(--bg);
+  background: linear-gradient(115deg, #12353b, #1b5f57 54%, #237c68);
   position: sticky;
   top: 0;
   z-index: 50;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(15, 42, 46, 0.08);
+}
+
+.topbar::after {
+  content: '';
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0, rgba(255, 255, 255, 0.02) 66%, transparent 70%);
+  right: -20px;
+  top: -40px;
+  pointer-events: none;
 }
 
 .topbar-title {
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: #c5ece5;
+  z-index: 1;
 }
 
 .topbar-title strong {
-  color: var(--text-primary);
+  color: #f4fffd;
   font-weight: 600;
 }
 
@@ -272,6 +329,7 @@ p  { color: var(--text-secondary); font-size: 0.875rem; }
   display: flex;
   align-items: center;
   gap: 8px;
+  z-index: 1;
 }
 
 .page-body {

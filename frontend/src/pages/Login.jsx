@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import useTheme from '../hooks/useTheme';
 
 export default function Login() {
   const [email,    setEmail]    = useState('');
@@ -8,6 +9,7 @@ export default function Login() {
   const [error,    setError]    = useState('');
   const [loading,  setLoading]  = useState(false);
   const navigate = useNavigate();
+  useTheme(); // Initialize theme
 
   const onSubmit = async (e) => {
     e.preventDefault();

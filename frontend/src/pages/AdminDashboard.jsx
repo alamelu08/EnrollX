@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import useTheme from '../hooks/useTheme';
 
 const initials = (n = '') => n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -9,6 +10,7 @@ const BLANK_FORM = { name: '', code: '', faculty_name: '', schedule: '', credits
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const { theme, toggle } = useTheme();
   const cfg  = { headers: { Authorization: `Bearer ${user?.token}` } };
 
   const [courses,    setCourses]    = useState([]);
@@ -162,6 +164,21 @@ export default function AdminDashboard() {
           </nav>
         </div>
         <div className="sidebar-footer">
+          <button
+            onClick={toggle}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+              padding: '6px 8px', borderRadius: 'var(--radius)', border: 'none',
+              background: 'none', cursor: 'pointer', color: 'var(--text-muted)',
+              fontSize: '0.75rem', marginBottom: 4, transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+          >
+            {theme === 'dark' ? '☀' : '◑'}
+            <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+          </button>
           <div className="sidebar-user" onClick={logout} title="Sign out">
             <div className="sidebar-avatar">{initials(user?.name)}</div>
             <div className="sidebar-user-info">
