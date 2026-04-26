@@ -2,166 +2,217 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const Profile = ({ theme, toggleTheme }) => {
-  const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user'));
-  const [profile, setProfile] = useState(null);
-  const [error, setError] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({
-    phone_number: '',
-    address: '',
-    designation: '',
-    department: ''
-  });
-  const [isSaving, setIsSaving] = useState(false);
-  const [toast, setToast] = useState(null);
+const initials = (n = '') => n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
-  const axiosConfig = {
-    headers: { Authorization: `Bearer ${user?.token}` }
-  };
+const Row = ({ label, value }) => (
+  <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '11px 0' }}>
+    <span style={{ width: 160, flexShrink: 0, fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>{label}</span>
+    <span style={{ fontSize: '0.82rem', color: value ? 'var(--text-primary)' : 'var(--text-disabled)' }}>
+      {value || '—'}
+    </span>
+  </div>
+);
+
+export default function Profile() {
+  const navigate = useNavigate();
+  const user     = JSON.parse(localStorage.getItem('user') || '{}');
+  const cfg      = { headers: { Authorization: `Bearer ${user?.token}` } };
+
+  const [profile,   setProfile]   = useState(null);
+  const [error,     setError]     = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData,  setFormData]  = useState({ phone_number: '', address: '', designation: '', department: '' });
+  const [saving,    setSaving]    = useState(false);
+  const [toast,     setToast]     = useState(null);
+
+  const notify = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 4000); };
+  const logout = () => { localStorage.removeItem('user'); navigate('/login'); };
 
   useEffect(() => {
-    fetchProfile();
+    axios.get('http://localhost:5000/api/users/profile', cfg)
+      .then(r => {
+        setProfile(r.data);
+        setFormData({
+          phone_number: r.data.phone_number || '',
+          address:      r.data.address      || '',
+          designation:  r.data.designation  || '',
+          department:   r.data.department   || '',
+        });
+      })
+      .catch(() => setError('Failed to load profile. Make sure the backend is running.'));
   }, []);
-
-  const fetchProfile = async () => {
-    try {
-      const res = await axios.get('http://localhost:5000/api/users/profile', axiosConfig);
-      setProfile(res.data);
-      setFormData({
-        phone_number: res.data.phone_number || '',
-        address: res.data.address || '',
-        designation: res.data.designation || '',
-        department: res.data.department || ''
-      });
-    } catch (err) {
-      console.error('Error fetching profile:', err);
-      setError('Failed to load profile. Ensure the backend and database migrations are running.');
-    }
-  };
-
-  const showToast = (type, message) => {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), 4000);
-  };
-
-  const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
 
   const handleSave = async (e) => {
     e.preventDefault();
-    setIsSaving(true);
+    setSaving(true);
     try {
-      const res = await axios.put('http://localhost:5000/api/users/profile', formData, axiosConfig);
-      setProfile(res.data);
+      const r = await axios.put('http://localhost:5000/api/users/profile', formData, cfg);
+      setProfile(r.data);
       setIsEditing(false);
-      showToast('success', 'Profile updated successfully!');
-    } catch (err) {
-      console.error('Error updating profile:', err);
-      showToast('error', 'Error updating profile');
+      notify('success', 'Profile updated.');
+    } catch {
+      notify('error', 'Update failed.');
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
+  const isFaculty = profile?.role === 'admin';
+  const dashPath  = isFaculty ? '/admin-dashboard' : '/student-dashboard';
 
-  if (error) return <div style={{ padding: '2rem', textAlign: 'center', color: '#ef4444' }}>{error}</div>;
-  if (!profile) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading profile...</div>;
-
-  const isFaculty = profile.role === 'admin'; // Admin corresponds to faculty in this app
+  if (error)    return <div className="loading-state" style={{ color: 'var(--red)' }}>{error}</div>;
+  if (!profile) return <div className="loading-state">Loading profile…</div>;
 
   return (
-    <div className="dashboard">
-      {toast && (
-        <div style={{
-          position: 'fixed', top: '1.5rem', right: '1.5rem', zIndex: 9999,
-          padding: '1rem 1.5rem', borderRadius: '10px', fontWeight: '600',
-          background: toast.type === 'success' ? '#10b981' : '#ef4444',
-          color: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
-        }}>
-          {toast.message}
+    <div className="app-layout">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div className="sidebar-logo-mark">EX</div>
+          <span className="sidebar-logo-name">EnrollX</span>
+          <span className="sidebar-logo-badge">{isFaculty ? 'Faculty' : 'Student'}</span>
         </div>
-      )}
-
-      <header className="dashboard-header">
-        <h1>My Profile</h1>
-        <div className="user-info">
-          <button onClick={toggleTheme} className="btn" style={{ width: 'auto', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-color)' }}>
-            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
-          </button>
-          <button onClick={() => navigate(isFaculty ? '/admin-dashboard' : '/student-dashboard')} className="btn" style={{ width: 'auto', background: '#6366f1' }}>
-            Dashboard
-          </button>
-          <button onClick={handleLogout} className="btn btn-logout">Logout</button>
+        <div className="sidebar-section">
+          <div className="sidebar-section-label">Navigation</div>
+          <nav className="sidebar-nav">
+            <button className="sidebar-link" onClick={() => navigate(dashPath)}>Dashboard</button>
+            <button className="sidebar-link active">Profile</button>
+            {!isFaculty && <button className="sidebar-link" onClick={() => navigate('/attendance')}>Attendance</button>}
+          </nav>
         </div>
-      </header>
-
-      <main className="dashboard-content" style={{ display: 'block' }}>
-        <section className="card" style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h2>{isEditing ? 'Edit Profile' : 'Profile Details'}</h2>
-            {!isEditing && (
-              <button onClick={() => setIsEditing(true)} className="btn" style={{ width: 'auto' }}>Edit Profile</button>
-            )}
+        <div className="sidebar-footer">
+          <div className="sidebar-user" onClick={logout} title="Sign out">
+            <div className="sidebar-avatar">{initials(profile.name)}</div>
+            <div className="sidebar-user-info">
+              <div className="sidebar-user-name">{profile.name}</div>
+              <div className="sidebar-user-role">Sign out</div>
+            </div>
           </div>
+        </div>
+      </aside>
 
-          <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-            <p style={{ margin: '0.5rem 0' }}><strong>Name:</strong> {profile.name}</p>
-            <p style={{ margin: '0.5rem 0' }}><strong>Email:</strong> {profile.email}</p>
-            <p style={{ margin: '0.5rem 0' }}><strong>Roll Number / ID:</strong> {profile.roll_number}</p>
-            <p style={{ margin: '0.5rem 0' }}><strong>Department:</strong> {profile.department}</p>
-            <p style={{ margin: '0.5rem 0' }}><strong>Role:</strong> {isFaculty ? 'Faculty' : 'Student'}</p>
+      {/* Main */}
+      <div className="main-content">
+        <div className="topbar">
+          <div className="topbar-title">
+            <strong>EnrollX</strong>&nbsp;/&nbsp;Profile
+          </div>
+          <div className="topbar-actions">
+            {!isEditing && (
+              <button className="btn btn-secondary btn-sm" onClick={() => setIsEditing(true)}>Edit profile</button>
+            )}
+            <button className="btn btn-ghost btn-sm" onClick={() => navigate(dashPath)}>← Dashboard</button>
+          </div>
+        </div>
+
+        <div className="page-body" style={{ maxWidth: 680 }}>
+          {/* Identity block */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: '50%',
+              background: 'var(--accent-dim)', border: '1px solid var(--accent)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent)', flexShrink: 0,
+            }}>
+              {initials(profile.name)}
+            </div>
+            <div>
+              <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>{profile.name}</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                {profile.email} &nbsp;·&nbsp; {isFaculty ? 'Faculty' : 'Student'}
+                {profile.roll_number && <>&nbsp;·&nbsp; {profile.roll_number}</>}
+              </div>
+            </div>
           </div>
 
           {isEditing ? (
-            <form onSubmit={handleSave}>
-              <div className="form-group">
-                <label>Phone Number</label>
-                <input type="text" name="phone_number" value={formData.phone_number} onChange={handleInputChange} placeholder="e.g. +1 234 567 8900" />
-              </div>
-              <div className="form-group">
-                <label>Address</label>
-                <textarea name="address" value={formData.address} onChange={handleInputChange} rows="3" placeholder="Enter your full address" style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--text-color)' }}></textarea>
-              </div>
-              {isFaculty && (
-                <div className="form-group">
-                  <label>Designation</label>
-                  <input type="text" name="designation" value={formData.designation} onChange={handleInputChange} placeholder="e.g. Professor of Computer Science" />
+            /* ── Edit Form ── */
+            <div className="form-panel">
+              <div className="form-panel-title">Edit Profile</div>
+              <form onSubmit={handleSave}>
+                <div className="form-row">
+                  <div className="field">
+                    <label>Phone Number</label>
+                    <input
+                      name="phone_number"
+                      value={formData.phone_number}
+                      onChange={e => setFormData(f => ({ ...f, phone_number: e.target.value }))}
+                      placeholder="+91 98765 43210"
+                    />
+                  </div>
                 </div>
-              )}
-              <div className="form-group">
-                <label>Department</label>
-                <input type="text" name="department" value={formData.department} onChange={handleInputChange} placeholder="e.g. Computer Science and Engineering" />
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <button type="submit" className="btn" style={{ flex: 1 }} disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save Changes'}
-                </button>
-                <button type="button" className="btn" style={{ flex: 1, backgroundColor: '#6b7280' }} onClick={() => setIsEditing(false)} disabled={isSaving}>
-                  Cancel
-                </button>
-              </div>
-            </form>
+                <div className="form-row">
+                  <div className="field">
+                    <label>Department</label>
+                    <input
+                      name="department"
+                      value={formData.department}
+                      onChange={e => setFormData(f => ({ ...f, department: e.target.value }))}
+                      placeholder="Computer Science and Engineering"
+                    />
+                  </div>
+                </div>
+                {isFaculty && (
+                  <div className="form-row">
+                    <div className="field">
+                      <label>Designation</label>
+                      <input
+                        name="designation"
+                        value={formData.designation}
+                        onChange={e => setFormData(f => ({ ...f, designation: e.target.value }))}
+                        placeholder="Associate Professor"
+                      />
+                    </div>
+                  </div>
+                )}
+                <div className="form-row">
+                  <div className="field">
+                    <label>Address</label>
+                    <textarea
+                      name="address"
+                      rows={3}
+                      value={formData.address}
+                      onChange={e => setFormData(f => ({ ...f, address: e.target.value }))}
+                      placeholder="Enter your full address"
+                    />
+                  </div>
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="btn btn-primary" disabled={saving}>
+                    {saving ? 'Saving…' : 'Save changes'}
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => setIsEditing(false)} disabled={saving}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
           ) : (
-            <div>
-              <p style={{ margin: '0.75rem 0' }}><strong>Phone Number:</strong> {profile.phone_number || <span style={{ color: '#9ca3af' }}>Not provided</span>}</p>
-              <p style={{ margin: '0.75rem 0' }}><strong>Address:</strong> {profile.address || <span style={{ color: '#9ca3af' }}>Not provided</span>}</p>
-              {isFaculty && (
-                <p style={{ margin: '0.75rem 0' }}><strong>Designation:</strong> {profile.designation || <span style={{ color: '#9ca3af' }}>Not provided</span>}</p>
-              )}
-              <p style={{ margin: '0.75rem 0' }}><strong>Department:</strong> {profile.department || <span style={{ color: '#9ca3af' }}>Not provided</span>}</p>
+            /* ── Read View ── */
+            <div className="section-panel">
+              <div className="section-panel-header">
+                <h2>Details</h2>
+              </div>
+              <div style={{ padding: '4px 20px 12px' }}>
+                <Row label="Full Name"        value={profile.name} />
+                <Row label="Email"            value={profile.email} />
+                <Row label="Roll Number / ID" value={profile.roll_number} />
+                <Row label="Role"             value={isFaculty ? 'Faculty' : 'Student'} />
+                <Row label="Department"       value={profile.department} />
+                {isFaculty && <Row label="Designation" value={profile.designation} />}
+                <Row label="Phone"            value={profile.phone_number} />
+                <Row label="Address"          value={profile.address} />
+              </div>
             </div>
           )}
-        </section>
-      </main>
+        </div>
+      </div>
+
+      {toast && (
+        <div className={`toast toast-${toast.type}`}>
+          {toast.type === 'success' ? '✓' : '✕'} {toast.msg}
+        </div>
+      )}
     </div>
   );
-};
-
-export default Profile;
+}

@@ -1,154 +1,182 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
-const Attendance = ({ theme, toggleTheme }) => {
+const initials = (n = '') => n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+
+export default function Attendance() {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user'));
-  const [attendance, setAttendance] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const user     = JSON.parse(localStorage.getItem('user') || '{}');
+  const cfg      = { headers: { Authorization: `Bearer ${user?.token}` } };
 
-  const axiosConfig = {
-    headers: { Authorization: `Bearer ${user?.token}` }
-  };
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const logout = () => { localStorage.removeItem('user'); navigate('/login'); };
 
   useEffect(() => {
-    fetchAttendance();
+    axios.get('http://localhost:5000/api/attendance/my', cfg)
+      .then(r => setRecords(r.data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
-  const fetchAttendance = async () => {
-    try {
-      const res = await axios.get('http://localhost:5000/api/attendance/my', axiosConfig);
-      setAttendance(res.data);
-      setLoading(false);
-    } catch (err) {
-      console.error('Error fetching attendance:', err);
-      setLoading(false);
-    }
+  const totalAttended = records.reduce((s, r) => s + r.attended, 0);
+  const totalClasses  = records.reduce((s, r) => s + r.total,    0);
+  const overallPct    = totalClasses === 0 ? 0 : Math.round((totalAttended / totalClasses) * 100);
+
+  const statusOf = (pct) => {
+    if (pct >= 75) return { label: 'Eligible',  pill: 'pill-green', bar: 'var(--green)', note: 'You meet the minimum attendance requirement.' };
+    if (pct >= 65) return { label: 'Warning',   pill: 'pill-amber', bar: 'var(--amber)', note: 'Attend upcoming classes to avoid a shortage.' };
+    return          { label: 'Shortage',  pill: 'pill-red',   bar: 'var(--red)',   note: 'Below requirement — contact your department.' };
   };
 
-  const calculateTotalPercentage = () => {
-    if (attendance.length === 0) return 0;
-    const totalAttended = attendance.reduce((sum, item) => sum + item.attended, 0);
-    const totalClasses = attendance.reduce((sum, item) => sum + item.total, 0);
-    return totalClasses === 0 ? 0 : Math.round((totalAttended / totalClasses) * 100);
-  };
-
-  const getStatus = (percent) => {
-    if (percent >= 75) return { label: 'Eligible', color: '#126052', bg: '#d6f3ed', note: 'You meet the minimum attendance requirement.' };
-    if (percent >= 65) return { label: 'Warning', color: '#8f6207', bg: '#fff2d5', note: 'Attend upcoming classes to avoid shortage.' };
-    return { label: 'Shortage', color: '#9f2030', bg: '#fde1e5', note: 'Attendance is below requirement; contact your department.' };
-  };
-
-  const totalPercent = calculateTotalPercentage();
-  const status = getStatus(totalPercent);
+  const overall = statusOf(overallPct);
 
   return (
-    <div className="dashboard attendance-page">
-      <header className="dashboard-header">
-        <h1>Attendance Portal</h1>
-        <div className="user-info">
-          <button onClick={toggleTheme} className="btn" style={{ width: 'auto', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-color)' }}>
-            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
-          </button>
-          <span>{user?.name} ({user?.roll_number})</span>
-          <button onClick={() => navigate(-1)} className="btn" style={{ width: 'auto', background: '#6b7280' }}>Back</button>
+    <div className="app-layout">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div className="sidebar-logo-mark">EX</div>
+          <span className="sidebar-logo-name">EnrollX</span>
+          <span className="sidebar-logo-badge">Student</span>
         </div>
-      </header>
-
-      <main className="dashboard-content" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2rem' }}>
-        <section className="card">
-          <h2>Overall Status</h2>
-          {loading ? (
-            <p>Loading attendance data...</p>
-          ) : (
-            <div style={{ marginTop: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <strong style={{ fontSize: '1.2rem' }}>{user?.roll_number} • {user?.department || 'Current Semester'}</strong>
-                <span style={{ 
-                  padding: '0.5rem 1rem', 
-                  borderRadius: '999px', 
-                  fontWeight: 'bold', 
-                  backgroundColor: status.bg, 
-                  color: status.color 
-                }}>
-                  {status.label}
-                </span>
-              </div>
-              
-              <div style={{ height: '12px', background: 'var(--border-color)', borderRadius: '6px', overflow: 'hidden', marginBottom: '1rem' }}>
-                <div style={{ 
-                  height: '100%', 
-                  width: `${totalPercent}%`, 
-                  background: totalPercent >= 75 ? 'linear-gradient(90deg, #2ac58f, #1b8a78)' : totalPercent >= 65 ? 'linear-gradient(90deg, #f3c55f, #d19212)' : 'linear-gradient(90deg, #f37886, #d7263d)',
-                  transition: 'width 0.5s ease'
-                }}></div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
-                <div className="stat-box" style={{ background: 'var(--card-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Aggregate</span>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{totalPercent}%</div>
-                </div>
-                <div className="stat-box" style={{ background: 'var(--card-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Attended</span>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{attendance.reduce((sum, item) => sum + item.attended, 0)}</div>
-                </div>
-                <div className="stat-box" style={{ background: 'var(--card-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Total Classes</span>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{attendance.reduce((sum, item) => sum + item.total, 0)}</div>
-                </div>
-              </div>
-
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', fontStyle: 'italic' }}>
-                {status.note}
-              </p>
+        <div className="sidebar-section">
+          <div className="sidebar-section-label">Navigation</div>
+          <nav className="sidebar-nav">
+            <button className="sidebar-link" onClick={() => navigate('/student-dashboard')}>Browse Courses</button>
+            <button className="sidebar-link" onClick={() => navigate('/student-dashboard')}>My Courses</button>
+            <button className="sidebar-link active">Attendance</button>
+            <button className="sidebar-link" onClick={() => navigate('/profile')}>Profile</button>
+          </nav>
+        </div>
+        <div className="sidebar-footer">
+          <div className="sidebar-user" onClick={logout} title="Sign out">
+            <div className="sidebar-avatar">{initials(user?.name)}</div>
+            <div className="sidebar-user-info">
+              <div className="sidebar-user-name">{user?.name || 'Student'}</div>
+              <div className="sidebar-user-role">Sign out</div>
             </div>
-          )}
-        </section>
-
-        <section className="card">
-          <h2>Course-Wise Details</h2>
-          <div style={{ overflowX: 'auto', marginTop: '1rem' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-                  <th style={{ padding: '0.75rem' }}>Course</th>
-                  <th style={{ padding: '0.75rem' }}>Attended</th>
-                  <th style={{ padding: '0.75rem' }}>Total</th>
-                  <th style={{ padding: '0.75rem' }}>%</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attendance.length === 0 ? (
-                  <tr>
-                    <td colSpan="4" style={{ padding: '1rem', textAlign: 'center' }}>No attendance records found.</td>
-                  </tr>
-                ) : (
-                  attendance.map((item, index) => {
-                    const percent = item.total === 0 ? 0 : Math.round((item.attended / item.total) * 100);
-                    return (
-                      <tr key={index} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '0.75rem' }}>
-                          <div style={{ fontWeight: 'bold' }}>{item.course_name}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{item.course_code}</div>
-                        </td>
-                        <td style={{ padding: '0.75rem' }}>{item.attended}</td>
-                        <td style={{ padding: '0.75rem' }}>{item.total}</td>
-                        <td style={{ padding: '0.75rem', fontWeight: 'bold', color: percent >= 75 ? '#10b981' : percent >= 65 ? '#f59e0b' : '#ef4444' }}>
-                          {percent}%
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
           </div>
-        </section>
-      </main>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="main-content">
+        <div className="topbar">
+          <div className="topbar-title">
+            <strong>EnrollX</strong>&nbsp;/&nbsp;Attendance
+          </div>
+          <div className="topbar-actions">
+            <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)}>← Back</button>
+          </div>
+        </div>
+
+        <div className="page-body">
+          {loading ? (
+            <div className="loading-state">Loading attendance records…</div>
+          ) : (
+            <>
+              {/* Overall stat row */}
+              <div className="stat-row" style={{ marginBottom: 24 }}>
+                <div className="stat-cell">
+                  <div className={`stat-value`} style={{ color: overall.bar }}>{overallPct}%</div>
+                  <div className="stat-label">Overall</div>
+                </div>
+                <div className="stat-cell">
+                  <div className="stat-value">{totalAttended}</div>
+                  <div className="stat-label">Classes Attended</div>
+                </div>
+                <div className="stat-cell">
+                  <div className="stat-value">{totalClasses}</div>
+                  <div className="stat-label">Total Classes</div>
+                </div>
+                <div className="stat-cell">
+                  <div className="stat-value">{records.length}</div>
+                  <div className="stat-label">Courses</div>
+                </div>
+              </div>
+
+              {/* Overall status banner */}
+              {records.length > 0 && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-lg)', padding: '14px 20px', marginBottom: 24,
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        Attendance summary
+                      </span>
+                      <span className={`pill ${overall.pill}`}>{overall.label}</span>
+                    </div>
+                    <div className="att-bar-wrap">
+                      <div className="att-bar-track" style={{ width: 240 }}>
+                        <div className="att-bar-fill" style={{ width: `${overallPct}%`, background: overall.bar }} />
+                      </div>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{overallPct}%</span>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', maxWidth: 260, textAlign: 'right', margin: 0 }}>
+                    {overall.note}
+                  </p>
+                </div>
+              )}
+
+              {/* Per-course table */}
+              {records.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-state-icon">◻</div>
+                  <p>No attendance records found.</p>
+                </div>
+              ) : (
+                <div className="data-table-wrap">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Course</th>
+                        <th>Code</th>
+                        <th>Attended</th>
+                        <th>Total</th>
+                        <th>Attendance</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {records.map((item, i) => {
+                        const pct  = item.total === 0 ? 0 : Math.round((item.attended / item.total) * 100);
+                        const st   = statusOf(pct);
+                        return (
+                          <tr key={i}>
+                            <td style={{ fontWeight: 500 }}>{item.course_name}</td>
+                            <td><span className="pill pill-code">{item.course_code}</span></td>
+                            <td className="secondary">{item.attended}</td>
+                            <td className="muted">{item.total}</td>
+                            <td style={{ minWidth: 160 }}>
+                              <div className="att-bar-wrap">
+                                <div className="att-bar-track">
+                                  <div className="att-bar-fill" style={{ width: `${pct}%`, background: st.bar }} />
+                                </div>
+                                <span style={{ fontSize: '0.72rem', color: st.bar, minWidth: 36, fontWeight: 600 }}>
+                                  {pct}%
+                                </span>
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`pill ${st.pill}`}>{st.label}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
-};
-
-export default Attendance;
+}

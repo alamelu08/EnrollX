@@ -4,333 +4,258 @@ import axios from 'axios';
 
 const API = 'http://localhost:5000/api';
 
-const StudentDashboard = ({ theme, toggleTheme }) => {
+const initials = (n = '') => n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+
+export default function StudentDashboard() {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user'));
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const cfg  = { headers: { Authorization: `Bearer ${user?.token}` } };
 
-  const [courses, setCourses] = useState([]);
-  const [myRegistrations, setMyRegistrations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(null); // courseId being acted on
-  const [toast, setToast] = useState(null); // { type: 'success'|'error', message }
-  const [activeTab, setActiveTab] = useState('browse'); // 'browse' | 'enrolled'
+  const [courses,   setCourses]   = useState([]);
+  const [myRegs,    setMyRegs]    = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [acting,    setActing]    = useState(null);
+  const [toast,     setToast]     = useState(null);
+  const [activeTab, setActiveTab] = useState('browse');
 
-  const config = { headers: { Authorization: `Bearer ${user?.token}` } };
+  const notify = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 4000); };
 
-  const showToast = (type, message) => {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), 4000);
-  };
-
-  const fetchCourses = useCallback(async () => {
-    try {
-      const res = await axios.get(`${API}/courses`, config);
-      setCourses(res.data);
-    } catch (err) {
-      console.error('Error fetching courses:', err);
-    }
+  const fetchAll = useCallback(async () => {
+    const [c, r] = await Promise.all([
+      axios.get(`${API}/courses`, cfg),
+      axios.get(`${API}/registrations/my`, cfg),
+    ]);
+    setCourses(c.data);
+    setMyRegs(r.data);
   }, []);
 
-  const fetchMyRegistrations = useCallback(async () => {
-    try {
-      const res = await axios.get(`${API}/registrations/my`, config);
-      setMyRegistrations(res.data);
-    } catch (err) {
-      console.error('Error fetching registrations:', err);
-    }
-  }, []);
+  useEffect(() => { (async () => { setLoading(true); await fetchAll().catch(console.error); setLoading(false); })(); }, []);
 
-  useEffect(() => {
-    const init = async () => {
-      setLoading(true);
-      await Promise.all([fetchCourses(), fetchMyRegistrations()]);
-      setLoading(false);
-    };
-    init();
-  }, [fetchCourses, fetchMyRegistrations]);
-
-  const handleEnroll = async (courseId) => {
-    setActionLoading(courseId);
-    try {
-      const res = await axios.post(`${API}/registrations/${courseId}`, {}, config);
-      showToast('success', res.data.message);
-      await Promise.all([fetchCourses(), fetchMyRegistrations()]);
-    } catch (err) {
-      showToast('error', err.response?.data?.message || 'Enrollment failed');
-    } finally {
-      setActionLoading(null);
-    }
+  const handleEnroll = async (id) => {
+    setActing(id);
+    try { const r = await axios.post(`${API}/registrations/${id}`, {}, cfg); notify('success', r.data.message); await fetchAll(); }
+    catch (e) { notify('error', e.response?.data?.message || 'Enrollment failed'); }
+    finally { setActing(null); }
   };
 
-  const handleDrop = async (courseId) => {
-    if (!window.confirm('Are you sure you want to drop this course?')) return;
-    setActionLoading(courseId);
-    try {
-      const res = await axios.delete(`${API}/registrations/${courseId}`, config);
-      showToast('success', res.data.message);
-      await Promise.all([fetchCourses(), fetchMyRegistrations()]);
-    } catch (err) {
-      showToast('error', err.response?.data?.message || 'Failed to drop course');
-    } finally {
-      setActionLoading(null);
-    }
+  const handleDrop = async (id) => {
+    if (!window.confirm('Drop this course?')) return;
+    setActing(id);
+    try { const r = await axios.delete(`${API}/registrations/${id}`, cfg); notify('success', r.data.message); await fetchAll(); }
+    catch (e) { notify('error', e.response?.data?.message || 'Drop failed'); }
+    finally { setActing(null); }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
+  const logout = () => { localStorage.removeItem('user'); navigate('/login'); };
 
-  // Map courseId → registration status for quick lookup
-  const registrationMap = myRegistrations.reduce((acc, r) => {
-    if (r.status !== 'dropped') acc[r.id] = r.status;
-    return acc;
-  }, {});
-
-  const enrolledCourses = myRegistrations.filter(r => r.status === 'enrolled');
-  const waitlistedCourses = myRegistrations.filter(r => r.status === 'waitlisted');
-
-  const getAvailableSeats = (course) => course.max_capacity - course.enrolled;
-  const isFull = (course) => getAvailableSeats(course) <= 0;
+  const regMap   = myRegs.reduce((a, r) => { if (r.status !== 'dropped') a[r.id] = r; return a; }, {});
+  const enrolled = myRegs.filter(r => r.status === 'enrolled');
+  const waiting  = myRegs.filter(r => r.status === 'waitlisted');
+  const totalCr  = enrolled.reduce((s, r) => s + (r.credits || 0), 0);
 
   return (
-    <div className="dashboard">
-      {/* Toast Notification */}
-      {toast && (
-        <div style={{
-          position: 'fixed', top: '1.5rem', right: '1.5rem', zIndex: 9999,
-          padding: '1rem 1.5rem', borderRadius: '10px', fontWeight: '600',
-          background: toast.type === 'success' ? '#10b981' : '#ef4444',
-          color: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-          animation: 'fadeIn 0.3s ease'
-        }}>
-          {toast.type === 'success' ? '✅ ' : '❌ '}{toast.message}
+    <div className="app-layout">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div className="sidebar-logo-mark">EX</div>
+          <span className="sidebar-logo-name">EnrollX</span>
+          <span className="sidebar-logo-badge">Student</span>
         </div>
-      )}
-
-      {/* Header */}
-      <header className="dashboard-header">
-        <h1>Student Dashboard</h1>
-        <div className="user-info">
-          <button onClick={toggleTheme} className="btn" style={{ width: 'auto', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-color)' }}>
-            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
-          </button>
-          <span>Welcome, {user?.name}</span>
-          <button onClick={() => navigate('/attendance')} className="btn" style={{ width: 'auto', background: '#10b981' }}>Attendance</button>
-          <button onClick={() => navigate('/profile')} className="btn" style={{ width: 'auto', background: '#3b82f6' }}>My Profile</button>
-          <button onClick={handleLogout} className="btn btn-logout">Logout</button>
+        <div className="sidebar-section">
+          <div className="sidebar-section-label">Navigation</div>
+          <nav className="sidebar-nav">
+            {[
+              { id: 'browse',   label: 'Browse Courses' },
+              { id: 'enrolled', label: 'My Courses' },
+            ].map(t => (
+              <button key={t.id} className={`sidebar-link ${activeTab === t.id ? 'active' : ''}`} onClick={() => setActiveTab(t.id)}>
+                {t.label}
+              </button>
+            ))}
+            <button className="sidebar-link" onClick={() => navigate('/attendance')}>Attendance</button>
+            <button className="sidebar-link" onClick={() => navigate('/profile')}>Profile</button>
+          </nav>
         </div>
-      </header>
-
-      {/* Stats Bar */}
-      <div style={{ display: 'flex', gap: '1rem', padding: '1.5rem 2rem 0', flexWrap: 'wrap' }}>
-        {[
-          { label: 'Enrolled', value: enrolledCourses.length, color: '#10b981' },
-          { label: 'Waitlisted', value: waitlistedCourses.length, color: '#f59e0b' },
-          { label: 'Available Courses', value: courses.length, color: '#6366f1' },
-        ].map(stat => (
-          <div key={stat.label} style={{
-            background: '#fff', border: `2px solid ${stat.color}20`,
-            borderRadius: '12px', padding: '1rem 1.5rem', minWidth: '140px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
-          }}>
-            <div style={{ fontSize: '2rem', fontWeight: '800', color: stat.color }}>{stat.value}</div>
-            <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: '500' }}>{stat.label}</div>
+        <div className="sidebar-footer">
+          <div className="sidebar-user" onClick={logout} title="Sign out">
+            <div className="sidebar-avatar">{initials(user?.name)}</div>
+            <div className="sidebar-user-info">
+              <div className="sidebar-user-name">{user?.name || 'Student'}</div>
+              <div className="sidebar-user-role">Sign out</div>
+            </div>
           </div>
-        ))}
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="main-content">
+        <div className="topbar">
+          <div className="topbar-title">
+            <strong>EnrollX</strong>&nbsp;/&nbsp;{activeTab === 'browse' ? 'Browse Courses' : 'My Courses'}
+          </div>
+          <div className="topbar-actions">
+            <button className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button>
+          </div>
+        </div>
+
+        <div className="page-body">
+          {/* Stats */}
+          <div className="stat-row">
+            <div className="stat-cell"><div className="stat-value green">{enrolled.length}</div><div className="stat-label">Enrolled</div></div>
+            <div className="stat-cell"><div className="stat-value amber">{waiting.length}</div><div className="stat-label">Waitlisted</div></div>
+            <div className="stat-cell"><div className="stat-value accent">{courses.length}</div><div className="stat-label">Available</div></div>
+            <div className="stat-cell"><div className="stat-value">{totalCr}</div><div className="stat-label">Credits</div></div>
+          </div>
+
+          {/* Tabs */}
+          <div className="tabs">
+            <button className={`tab-btn ${activeTab === 'browse'   ? 'active' : ''}`} onClick={() => setActiveTab('browse')}>Browse</button>
+            <button className={`tab-btn ${activeTab === 'enrolled' ? 'active' : ''}`} onClick={() => setActiveTab('enrolled')}>
+              My Courses {enrolled.length + waiting.length > 0 ? `(${enrolled.length + waiting.length})` : ''}
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="loading-state">Loading…</div>
+          ) : activeTab === 'browse' ? (
+            /* ── Browse ── */
+            <div className="section-panel">
+              <div className="section-panel-header">
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{courses.length} course{courses.length !== 1 ? 's' : ''}</span>
+              </div>
+              {courses.length === 0 ? (
+                <div className="empty-state">No courses available.</div>
+              ) : (
+                <div style={{ padding: '0 20px' }}>
+                  {courses.map(c => {
+                    const reg   = regMap[c.id];
+                    const avail = c.max_capacity - c.enrolled;
+                    const isFull = avail <= 0;
+                    const isAct  = acting === c.id;
+                    return (
+                      <div key={c.id} className="course-row">
+                        <div className="course-row-main">
+                          <div className="course-row-name">
+                            {c.name}
+                            {reg?.status === 'enrolled'   && <span className="pill pill-green" style={{ marginLeft: 8 }}>Enrolled</span>}
+                            {reg?.status === 'waitlisted' && <span className="pill pill-amber" style={{ marginLeft: 8 }}>Waitlisted</span>}
+                          </div>
+                          <div className="course-row-meta">
+                            <span className="pill pill-code">{c.code}{c.section ? ` · ${c.section}` : ''}</span>
+                            <span>{c.faculty_name}</span>
+                            <span>{c.schedule || '—'}</span>
+                            <span>{c.credits} cr</span>
+                            <span style={{ color: isFull ? 'var(--red)' : 'var(--text-muted)' }}>
+                              {isFull ? 'Full' : `${avail}/${c.max_capacity} seats`}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="course-row-actions">
+                          {reg ? (
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDrop(c.id)} disabled={isAct}>
+                              {isAct ? '…' : 'Drop'}
+                            </button>
+                          ) : (
+                            <button
+                              className={isFull ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'}
+                              onClick={() => handleEnroll(c.id)} disabled={isAct}
+                            >
+                              {isAct ? '…' : isFull ? 'Waitlist' : 'Enroll'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* ── My Courses ── */
+            <>
+              {enrolled.length === 0 && waiting.length === 0 ? (
+                <div className="empty-state">
+                  <p>Not enrolled in any courses.</p>
+                  <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={() => setActiveTab('browse')}>Browse courses</button>
+                </div>
+              ) : (
+                <>
+                  {enrolled.length > 0 && (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                        <h3>Enrolled</h3>
+                        <span className="pill pill-green">{enrolled.length}</span>
+                      </div>
+                      <div className="data-table-wrap" style={{ marginBottom: 24 }}>
+                        <table className="data-table">
+                          <thead><tr><th>Course</th><th>Code</th><th>Faculty</th><th>Schedule</th><th>Cr</th><th>Grades</th><th></th></tr></thead>
+                          <tbody>
+                            {enrolled.map(r => (
+                              <tr key={r.registration_id}>
+                                <td style={{ fontWeight: 500 }}>{r.name}</td>
+                                <td><span className="pill pill-code">{r.code}</span></td>
+                                <td className="secondary">{r.faculty_name}</td>
+                                <td className="muted">{r.schedule || '—'}</td>
+                                <td className="muted">{r.credits}</td>
+                                <td>
+                                  {(!r.test_grades || r.test_grades.length === 0)
+                                    ? <span style={{ color: 'var(--text-disabled)', fontSize: '0.72rem' }}>—</span>
+                                    : r.test_grades.map((tg, i) => <span key={i} className="grade-badge">{tg.test_name}: {tg.grade}</span>)
+                                  }
+                                </td>
+                                <td>
+                                  <button className="btn btn-danger btn-sm" onClick={() => handleDrop(r.id)} disabled={acting === r.id}>
+                                    {acting === r.id ? '…' : 'Drop'}
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                  {waiting.length > 0 && (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                        <h3>Waitlisted</h3>
+                        <span className="pill pill-amber">{waiting.length}</span>
+                      </div>
+                      <div className="data-table-wrap">
+                        <table className="data-table">
+                          <thead><tr><th>Course</th><th>Code</th><th>Faculty</th><th>Schedule</th><th></th></tr></thead>
+                          <tbody>
+                            {waiting.map(r => (
+                              <tr key={r.registration_id}>
+                                <td style={{ fontWeight: 500 }}>{r.name}</td>
+                                <td><span className="pill pill-code">{r.code}</span></td>
+                                <td className="secondary">{r.faculty_name}</td>
+                                <td className="muted">{r.schedule || '—'}</td>
+                                <td>
+                                  <button className="btn btn-ghost btn-sm" onClick={() => handleDrop(r.id)} disabled={acting === r.id}>
+                                    {acting === r.id ? '…' : 'Leave'}
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
-      <main className="dashboard-content" style={{ display: 'block' }}>
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '2px solid #e5e7eb' }}>
-          {['browse', 'enrolled'].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              padding: '0.75rem 1.5rem', border: 'none', cursor: 'pointer',
-              fontWeight: '600', fontSize: '0.95rem', borderRadius: '8px 8px 0 0',
-              background: activeTab === tab ? '#6366f1' : 'transparent',
-              color: activeTab === tab ? '#fff' : '#6b7280',
-              borderBottom: activeTab === tab ? '2px solid #6366f1' : 'none',
-              transition: 'all 0.2s'
-            }}>
-              {tab === 'browse' ? '🔍 Browse Courses' : `📚 My Courses (${enrolledCourses.length + waitlistedCourses.length})`}
-            </button>
-          ))}
+      {toast && (
+        <div className={`toast toast-${toast.type}`}>
+          {toast.type === 'success' ? '✓' : '✕'} {toast.msg}
         </div>
-
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
-            Loading courses...
-          </div>
-        ) : activeTab === 'browse' ? (
-          /* ── Browse Tab ── */
-          <section className="card">
-            <h2>Available Courses</h2>
-            <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>
-              Browse and enroll in courses. Full courses will add you to the waitlist automatically.
-            </p>
-            {courses.length === 0 ? (
-              <p>No courses are currently available.</p>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                {courses.map(course => {
-                  const regStatus = registrationMap[course.id];
-                  const seats = getAvailableSeats(course);
-                  const full = isFull(course);
-                  const isActing = actionLoading === course.id;
-
-                  return (
-                    <div key={course.id} style={{
-                      border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1.5rem',
-                      display: 'flex', flexDirection: 'column', background: '#fafafa',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                      transition: 'box-shadow 0.2s',
-                    }}>
-                      {/* Course Header */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                        <h3 style={{ margin: 0, fontSize: '1.05rem', color: '#111827', lineHeight: 1.3 }}>{course.name}</h3>
-                        <span style={{ background: '#e0e7ff', color: '#4f46e5', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', whiteSpace: 'nowrap', marginLeft: '0.5rem' }}>
-                          {course.code}
-                        </span>
-                      </div>
-
-                      {/* Details */}
-                      <div style={{ flex: 1, fontSize: '0.875rem', color: '#374151' }}>
-                        <p style={{ margin: '0.35rem 0' }}>👨‍🏫 <strong>Faculty:</strong> {course.faculty_name}</p>
-                        <p style={{ margin: '0.35rem 0' }}>🗓️ <strong>Schedule:</strong> {course.schedule}</p>
-                        <p style={{ margin: '0.35rem 0' }}>📊 <strong>Credits:</strong> {course.credits}</p>
-                        <p style={{ margin: '0.35rem 0' }}>
-                          💺 <strong>Seats:</strong>{' '}
-                          <span style={{ color: full ? '#ef4444' : '#10b981', fontWeight: '700' }}>
-                            {full ? 'Full' : `${seats} / ${course.max_capacity} available`}
-                          </span>
-                        </p>
-                      </div>
-
-                      {/* Status Badge */}
-                      {regStatus && (
-                        <div style={{
-                          marginTop: '0.75rem', padding: '0.4rem 0.75rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '700', textAlign: 'center',
-                          background: regStatus === 'enrolled' ? '#d1fae5' : '#fef3c7',
-                          color: regStatus === 'enrolled' ? '#065f46' : '#92400e'
-                        }}>
-                          {regStatus === 'enrolled' ? '✅ Enrolled' : '⏳ Waitlisted'}
-                        </div>
-                      )}
-
-                      {/* Action Button */}
-                      {regStatus ? (
-                        <button
-                          className="btn"
-                          onClick={() => handleDrop(course.id)}
-                          disabled={isActing}
-                          style={{ marginTop: '0.75rem', width: '100%', background: '#ef4444', opacity: isActing ? 0.7 : 1 }}
-                        >
-                          {isActing ? 'Dropping...' : 'Drop Course'}
-                        </button>
-                      ) : (
-                        <button
-                          className="btn"
-                          onClick={() => handleEnroll(course.id)}
-                          disabled={isActing}
-                          style={{ marginTop: '0.75rem', width: '100%', background: full ? '#f59e0b' : undefined, opacity: isActing ? 0.7 : 1 }}
-                        >
-                          {isActing ? 'Processing...' : full ? '⏳ Join Waitlist' : '✅ Enroll'}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        ) : (
-          /* ── My Courses Tab ── */
-          <section className="card">
-            <h2>My Courses</h2>
-
-            {enrolledCourses.length === 0 && waitlistedCourses.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📭</div>
-                <p>You are not enrolled in any courses yet.</p>
-                <button className="btn" onClick={() => setActiveTab('browse')} style={{ marginTop: '1rem' }}>Browse Courses</button>
-              </div>
-            ) : (
-              <>
-                {enrolledCourses.length > 0 && (
-                  <>
-                    <h3 style={{ color: '#10b981', marginBottom: '1rem' }}>✅ Enrolled ({enrolledCourses.length})</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-                      {enrolledCourses.map(reg => (
-                        <div key={reg.registration_id} style={{ border: '2px solid #d1fae5', borderRadius: '12px', padding: '1.25rem', background: '#f0fdf4' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                            <h4 style={{ margin: 0, color: '#111827' }}>{reg.name}</h4>
-                            <span style={{ background: '#e0e7ff', color: '#4f46e5', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700' }}>{reg.code}</span>
-                          </div>
-                          <p style={{ margin: '0.3rem 0', fontSize: '0.85rem', color: '#374151' }}>👨‍🏫 {reg.faculty_name}</p>
-                          <p style={{ margin: '0.3rem 0', fontSize: '0.85rem', color: '#374151' }}>🗓️ {reg.schedule}</p>
-                          <p style={{ margin: '0.3rem 0', fontSize: '0.85rem', color: '#374151' }}>📊 {reg.credits} Credits</p>
-                          <div style={{ margin: '0.3rem 0', fontSize: '0.85rem', color: '#374151' }}>
-                            <span style={{ fontWeight: 'bold' }}>🎓 Grades: </span>
-                            {(!reg.test_grades || reg.test_grades.length === 0) ? (
-                              <span style={{ color: '#9ca3af', fontWeight: 'bold' }}>Not Graded Yet</span>
-                            ) : (
-                              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-                                {reg.test_grades.map((tg, idx) => (
-                                  <span key={idx} style={{ background: '#e0e7ff', color: '#4f46e5', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600' }}>
-                                    {tg.test_name}: {tg.grade}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            className="btn"
-                            onClick={() => handleDrop(reg.id)}
-                            disabled={actionLoading === reg.id}
-                            style={{ marginTop: '0.75rem', width: '100%', background: '#ef4444', fontSize: '0.85rem' }}
-                          >
-                            {actionLoading === reg.id ? 'Dropping...' : 'Drop Course'}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {waitlistedCourses.length > 0 && (
-                  <>
-                    <h3 style={{ color: '#f59e0b', marginBottom: '1rem' }}>⏳ Waitlisted ({waitlistedCourses.length})</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
-                      {waitlistedCourses.map(reg => (
-                        <div key={reg.registration_id} style={{ border: '2px solid #fde68a', borderRadius: '12px', padding: '1.25rem', background: '#fffbeb' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                            <h4 style={{ margin: 0, color: '#111827' }}>{reg.name}</h4>
-                            <span style={{ background: '#e0e7ff', color: '#4f46e5', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700' }}>{reg.code}</span>
-                          </div>
-                          <p style={{ margin: '0.3rem 0', fontSize: '0.85rem', color: '#374151' }}>👨‍🏫 {reg.faculty_name}</p>
-                          <p style={{ margin: '0.3rem 0', fontSize: '0.85rem', color: '#374151' }}>🗓️ {reg.schedule}</p>
-                          <p style={{ margin: '0.3rem 0', fontSize: '0.85rem', color: '#92400e' }}>⚠️ You'll be auto-enrolled when a seat opens</p>
-                          <button
-                            className="btn"
-                            onClick={() => handleDrop(reg.id)}
-                            disabled={actionLoading === reg.id}
-                            style={{ marginTop: '0.75rem', width: '100%', background: '#6b7280', fontSize: '0.85rem' }}
-                          >
-                            {actionLoading === reg.id ? 'Removing...' : 'Leave Waitlist'}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-          </section>
-        )}
-      </main>
+      )}
     </div>
   );
-};
-
-export default StudentDashboard;
+}

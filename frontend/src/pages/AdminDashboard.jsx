@@ -2,393 +2,352 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const AdminDashboard = ({ theme, toggleTheme }) => {
+const initials = (n = '') => n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const BLANK_FORM = { name: '', code: '', faculty_name: '', schedule: '', credits: '', max_capacity: '', syllabus: '', section: '', days: [], start_date: '', time: '' };
+
+export default function AdminDashboard() {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user'));
-  
-  const [courses, setCourses] = useState([]);
-  const [showForm, setShowForm] = useState(false);
-  const [editingCourse, setEditingCourse] = useState(null);
-  
-  const [managingGradesFor, setManagingGradesFor] = useState(null);
-  const [courseStudents, setCourseStudents] = useState([]);
-  const [gradeFormData, setGradeFormData] = useState({});
-  const [testColumns, setTestColumns] = useState([]);
-  const [newTestName, setNewTestName] = useState('');
-  
-  const [managingAttendanceFor, setManagingAttendanceFor] = useState(null);
-  const [attendanceFormData, setAttendanceFormData] = useState({});
-  const [bulkTotalClasses, setBulkTotalClasses] = useState('');
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    code: '',
-    faculty_name: '',
-    schedule: '',
-    credits: '',
-    max_capacity: '',
-    syllabus: '',
-    section: '',
-    days: [],
-    start_date: '',
-    time: ''
-  });
-  
-  const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const cfg  = { headers: { Authorization: `Bearer ${user?.token}` } };
 
-  const axiosConfig = {
-    headers: { Authorization: `Bearer ${user?.token}` }
-  };
+  const [courses,    setCourses]    = useState([]);
+  const [view,       setView]       = useState('courses'); // courses | addEdit | grades | attendance
+  const [editId,     setEditId]     = useState(null);
+  const [formData,   setFormData]   = useState(BLANK_FORM);
+  const [toast,      setToast]      = useState(null);
 
-  useEffect(() => {
-    fetchCourses();
-  }, []);
+  // grades
+  const [gradeCtx,   setGradeCtx]   = useState(null);
+  const [students,   setStudents]   = useState([]);
+  const [testCols,   setTestCols]   = useState([]);
+  const [gradeData,  setGradeData]  = useState({});
+  const [newTest,    setNewTest]    = useState('');
+
+  // attendance
+  const [attCtx,    setAttCtx]    = useState(null);
+  const [attData,   setAttData]   = useState({});
+  const [bulkTotal, setBulkTotal] = useState('');
+
+  const notify = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 4000); };
+  const logout = () => { localStorage.removeItem('user'); navigate('/login'); };
+
+  useEffect(() => { fetchCourses(); }, []);
 
   const fetchCourses = async () => {
-    try {
-      const res = await axios.get('http://localhost:5000/api/courses', axiosConfig);
-      setCourses(res.data);
-    } catch (err) {
-      console.error('Error fetching courses:', err);
-    }
+    try { const r = await axios.get('http://localhost:5000/api/courses', cfg); setCourses(r.data); }
+    catch (e) { console.error(e); }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
-
-  const handleInputChange = (e) => {
+  /* ── Form helpers ── */
+  const handleInput = (e) => {
     const { name, value, type, checked } = e.target;
     if (type === 'checkbox' && name === 'days') {
-      const updatedDays = checked 
-        ? [...formData.days, value]
-        : formData.days.filter(day => day !== value);
-      setFormData({ ...formData, days: updatedDays });
+      setFormData(f => ({ ...f, days: checked ? [...f.days, value] : f.days.filter(d => d !== value) }));
     } else {
-      setFormData({ ...formData, [name]: value });
+      setFormData(f => ({ ...f, [name]: value }));
     }
   };
 
-  const resetForm = () => {
-    setFormData({ name: '', code: '', faculty_name: '', schedule: '', credits: '', max_capacity: '', syllabus: '', section: '', days: [], start_date: '', time: '' });
-    setEditingCourse(null);
-    setShowForm(false);
-  };
+  const openAdd = () => { setFormData(BLANK_FORM); setEditId(null); setView('addEdit'); };
 
-  const handleEditClick = (course) => {
-    setEditingCourse(course.id);
+  const openEdit = (c) => {
+    setEditId(c.id);
     setFormData({
-      name: course.name,
-      code: course.code,
-      faculty_name: course.faculty_name,
-      schedule: course.schedule,
-      credits: course.credits,
-      max_capacity: course.max_capacity,
-      syllabus: course.syllabus || '',
-      section: course.section || '',
-      days: course.days ? course.days.split(', ') : [],
-      start_date: course.start_date ? new Date(course.start_date).toISOString().split('T')[0] : '',
-      time: course.time || ''
+      name: c.name, code: c.code, faculty_name: c.faculty_name, schedule: c.schedule,
+      credits: c.credits, max_capacity: c.max_capacity, syllabus: c.syllabus || '',
+      section: c.section || '', days: c.days ? c.days.split(', ') : [],
+      start_date: c.start_date ? new Date(c.start_date).toISOString().split('T')[0] : '',
+      time: c.time || '',
     });
-    setShowForm(true);
-  };
-
-  const handleDeleteClick = async (id) => {
-    if (window.confirm('Are you sure you want to delete this course?')) {
-      try {
-        await axios.delete(`http://localhost:5000/api/courses/${id}`, axiosConfig);
-        fetchCourses();
-      } catch (err) {
-        console.error('Error deleting course:', err);
-        alert(err.response?.data?.message || 'Error deleting course');
-      }
-    }
+    setView('addEdit');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      if (editingCourse) {
-        await axios.put(`http://localhost:5000/api/courses/${editingCourse}`, formData, axiosConfig);
-      } else {
-        await axios.post('http://localhost:5000/api/courses', formData, axiosConfig);
-      }
-      fetchCourses();
-      resetForm();
-    } catch (err) {
-      console.error('Error saving course:', err);
-      alert(err.response?.data?.message || 'Error saving course');
-    }
+      if (editId) await axios.put(`http://localhost:5000/api/courses/${editId}`, formData, cfg);
+      else        await axios.post('http://localhost:5000/api/courses', formData, cfg);
+      fetchCourses(); setView('courses'); notify('success', editId ? 'Course updated.' : 'Course created.');
+    } catch (e) { notify('error', e.response?.data?.message || 'Save failed'); }
   };
 
-  const handleManageGrades = async (course) => {
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this course?')) return;
+    try { await axios.delete(`http://localhost:5000/api/courses/${id}`, cfg); fetchCourses(); notify('success', 'Course deleted.'); }
+    catch (e) { notify('error', e.response?.data?.message || 'Delete failed'); }
+  };
+
+  /* ── Grades ── */
+  const openGrades = async (c) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/courses/${course.id}/students`, axiosConfig);
-      setCourseStudents(res.data);
-      setManagingGradesFor(course);
-      
-      const tests = new Set();
-      const initialGrades = {};
-      
+      const res = await axios.get(`http://localhost:5000/api/courses/${c.id}/students`, cfg);
+      setStudents(res.data);
+      setGradeCtx(c);
+      const tests = new Set(); const init = {};
       res.data.forEach(s => {
-        initialGrades[s.student_id] = {};
-        if (s.test_grades && Array.isArray(s.test_grades)) {
-          s.test_grades.forEach(tg => {
-            tests.add(tg.test_name);
-            initialGrades[s.student_id][tg.test_name] = tg.grade;
-          });
-        }
+        init[s.student_id] = {};
+        (s.test_grades || []).forEach(tg => { tests.add(tg.test_name); init[s.student_id][tg.test_name] = tg.grade; });
       });
-      
-      setTestColumns(Array.from(tests));
-      setGradeFormData(initialGrades);
-    } catch (err) {
-      console.error('Error fetching students:', err);
-      alert(err.response?.data?.message || 'Error fetching students');
-    }
+      setTestCols([...tests]); setGradeData(init); setView('grades');
+    } catch (e) { notify('error', 'Failed to load students'); }
   };
 
-  const handleManageAttendance = async (course) => {
+  const addTestCol = () => {
+    if (!newTest.trim() || testCols.includes(newTest.trim())) return;
+    setTestCols(c => [...c, newTest.trim()]); setNewTest('');
+  };
+
+  const saveGrades = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/courses/${course.id}/students`, axiosConfig);
-      setCourseStudents(res.data);
-      setManagingAttendanceFor(course);
-      
-      const initialAttendance = {};
-      res.data.forEach(s => {
-        initialAttendance[s.registration_id] = {
-          attended: s.attended_classes || 0,
-          total: s.total_classes || 0
-        };
+      const ps = [];
+      Object.keys(gradeData).forEach(sid => {
+        Object.keys(gradeData[sid]).forEach(tn => {
+          if (gradeData[sid][tn]?.trim())
+            ps.push(axios.put(`http://localhost:5000/api/courses/${gradeCtx.id}/students/${sid}/grade`, { test_name: tn, grade: gradeData[sid][tn] }, cfg));
+        });
       });
-      setAttendanceFormData(initialAttendance);
-    } catch (err) {
-      console.error('Error fetching students:', err);
-      alert(err.response?.data?.message || 'Error fetching students');
-    }
+      if (!ps.length) { notify('error', 'No grades to save.'); return; }
+      await Promise.all(ps); notify('success', 'Grades saved.');
+    } catch { notify('error', 'Failed to save some grades.'); }
   };
 
-  const handleAttendanceChange = (registrationId, field, value) => {
-    setAttendanceFormData({
-      ...attendanceFormData,
-      [registrationId]: {
-        ...attendanceFormData[registrationId],
-        [field]: parseInt(value) || 0
-      }
-    });
-  };
-
-  const handleApplyBulkTotal = () => {
-    const total = parseInt(bulkTotalClasses) || 0;
-    const updated = { ...attendanceFormData };
-    Object.keys(updated).forEach(id => {
-      updated[id].total = total;
-    });
-    setAttendanceFormData(updated);
-  };
-
-  const handleSaveAllAttendance = async () => {
+  /* ── Attendance ── */
+  const openAttendance = async (c) => {
     try {
-      const promises = Object.keys(attendanceFormData).map(registrationId => 
-        axios.put(`http://localhost:5000/api/attendance/${registrationId}`, {
-          attended_classes: attendanceFormData[registrationId].attended,
-          total_classes: attendanceFormData[registrationId].total
-        }, axiosConfig)
-      );
-      
-      await Promise.all(promises);
-      alert('All attendance records saved successfully!');
-    } catch (err) {
-      console.error('Error saving attendance:', err);
-      alert('Error saving some attendance records. Please try again.');
-    }
+      const res = await axios.get(`http://localhost:5000/api/courses/${c.id}/students`, cfg);
+      setStudents(res.data);
+      setAttCtx(c);
+      const init = {};
+      res.data.forEach(s => { init[s.registration_id] = { attended: s.attended_classes || 0, total: s.total_classes || 0 }; });
+      setAttData(init); setView('attendance');
+    } catch { notify('error', 'Failed to load students'); }
   };
 
-  const handleAddTestColumn = () => {
-    if (!newTestName.trim()) return;
-    const testName = newTestName.trim();
-    if (!testColumns.includes(testName)) {
-      setTestColumns([...testColumns, testName]);
-    }
-    setNewTestName('');
-  };
-
-  const handleGradeChange = (studentId, testName, value) => {
-    setGradeFormData({
-      ...gradeFormData,
-      [studentId]: {
-        ...gradeFormData[studentId],
-        [testName]: value
-      }
-    });
-  };
-
-  const handleSaveAllGrades = async () => {
+  const saveAttendance = async () => {
     try {
-      const promises = [];
-      for (const studentId of Object.keys(gradeFormData)) {
-        const studentGrades = gradeFormData[studentId];
-        for (const testName of Object.keys(studentGrades)) {
-          const grade = studentGrades[testName];
-          if (grade !== undefined && grade.trim() !== '') {
-            promises.push(
-              axios.put(`http://localhost:5000/api/courses/${managingGradesFor.id}/students/${studentId}/grade`, {
-                test_name: testName,
-                grade: grade
-              }, axiosConfig)
-            );
-          }
-        }
-      }
-      
-      if (promises.length === 0) {
-        alert('No grades to save!');
-        return;
-      }
-
-      await Promise.all(promises);
-      alert('All grades saved successfully!');
-    } catch (err) {
-      console.error('Error saving grades:', err);
-      alert('Error saving some grades. Please try again.');
-    }
+      await Promise.all(Object.keys(attData).map(rid =>
+        axios.put(`http://localhost:5000/api/attendance/${rid}`, { attended_classes: attData[rid].attended, total_classes: attData[rid].total }, cfg)
+      ));
+      notify('success', 'Attendance saved.');
+    } catch { notify('error', 'Failed to save.'); }
   };
+
+  const applyBulk = () => {
+    const t = parseInt(bulkTotal) || 0;
+    setAttData(d => { const n = { ...d }; Object.keys(n).forEach(k => { n[k] = { ...n[k], total: t }; }); return n; });
+  };
+
+  const backToCourses = () => { setView('courses'); setGradeCtx(null); setAttCtx(null); };
+
+  /* ── Render ── */
+  const sideLinks = [
+    { id: 'courses', label: 'Courses' },
+  ];
 
   return (
-    <div className="dashboard admin-dashboard">
-      <header className="dashboard-header">
-        <h1>Admin Dashboard (Faculty)</h1>
-        <div className="user-info">
-          <button onClick={toggleTheme} className="btn" style={{ width: 'auto', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-color)' }}>
-            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
-          </button>
-          <span>Welcome, {user?.name}</span>
-          <button onClick={() => navigate('/profile')} className="btn" style={{ width: 'auto', background: '#3b82f6' }}>My Profile</button>
-          <button onClick={handleLogout} className="btn btn-logout">Logout</button>
+    <div className="app-layout">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div className="sidebar-logo-mark">EX</div>
+          <span className="sidebar-logo-name">EnrollX</span>
+          <span className="sidebar-logo-badge">Faculty</span>
         </div>
-      </header>
-      
-      <main className="dashboard-content" style={{ display: 'block' }}>
-        
-        {managingAttendanceFor ? (
-          <section className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2>Manage Attendance: {managingAttendanceFor.name}</h2>
-              <button className="btn" style={{ width: 'auto', backgroundColor: '#6b7280' }} onClick={() => setManagingAttendanceFor(null)}>Back to Courses</button>
+        <div className="sidebar-section">
+          <div className="sidebar-section-label">Dashboard</div>
+          <nav className="sidebar-nav">
+            <button className={`sidebar-link ${view === 'courses' || view === 'addEdit' ? 'active' : ''}`} onClick={backToCourses}>Courses</button>
+            <button className="sidebar-link" onClick={() => navigate('/profile')}>Profile</button>
+          </nav>
+        </div>
+        <div className="sidebar-footer">
+          <div className="sidebar-user" onClick={logout} title="Sign out">
+            <div className="sidebar-avatar">{initials(user?.name)}</div>
+            <div className="sidebar-user-info">
+              <div className="sidebar-user-name">{user?.name || 'Faculty'}</div>
+              <div className="sidebar-user-role">Sign out</div>
             </div>
-            {courseStudents.length === 0 ? (
-              <p>No students currently enrolled in this course.</p>
-            ) : (
-              <div>
-                <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Total Classes for All:</label>
-                    <input 
-                      type="number" 
-                      placeholder="e.g. 34" 
-                      value={bulkTotalClasses} 
-                      onChange={e => setBulkTotalClasses(e.target.value)}
-                      style={{ padding: '0.5rem', width: '80px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
-                    />
-                    <button onClick={handleApplyBulkTotal} className="btn" style={{ width: 'auto', background: '#3b82f6' }}>Apply to All</button>
-                  </div>
-                  <button onClick={handleSaveAllAttendance} className="btn" style={{ width: 'auto', background: '#10b981' }}>Save All Attendance</button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="main-content">
+        <div className="topbar">
+          <div className="topbar-title">
+            <strong>EnrollX</strong>&nbsp;/&nbsp;
+            {view === 'courses'    && 'Courses'}
+            {view === 'addEdit'    && (editId ? 'Edit Course' : 'New Course')}
+            {view === 'grades'     && `Grades — ${gradeCtx?.name}`}
+            {view === 'attendance' && `Attendance — ${attCtx?.name}`}
+          </div>
+          <div className="topbar-actions">
+            {(view === 'grades' || view === 'attendance' || view === 'addEdit') && (
+              <button className="btn btn-ghost btn-sm" onClick={backToCourses}>← Back</button>
+            )}
+            {view === 'courses' && (
+              <button className="btn btn-primary btn-sm" onClick={openAdd}>New Course</button>
+            )}
+            {view === 'grades' && (
+              <button className="btn btn-primary btn-sm" onClick={saveGrades}>Save Grades</button>
+            )}
+            {view === 'attendance' && (
+              <button className="btn btn-primary btn-sm" onClick={saveAttendance}>Save Attendance</button>
+            )}
+            <button className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button>
+          </div>
+        </div>
+
+        <div className="page-body">
+
+          {/* ── COURSES VIEW ── */}
+          {view === 'courses' && (
+            <>
+              <div className="stat-row" style={{ marginBottom: 24 }}>
+                <div className="stat-cell"><div className="stat-value accent">{courses.length}</div><div className="stat-label">Total Courses</div></div>
+                <div className="stat-cell"><div className="stat-value">{courses.reduce((s, c) => s + (c.enrolled || 0), 0)}</div><div className="stat-label">Total Enrolled</div></div>
+                <div className="stat-cell"><div className="stat-value">{courses.filter(c => c.faculty_id === user?.id).length}</div><div className="stat-label">My Courses</div></div>
+              </div>
+              {courses.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-state-icon">◻</div>
+                  <p>No courses yet.</p>
+                  <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={openAdd}>Create first course</button>
                 </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              ) : (
+                <div className="data-table-wrap">
+                  <table className="data-table">
                     <thead>
-                      <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-                        <th style={{ padding: '0.75rem' }}>Student Name</th>
-                        <th style={{ padding: '0.75rem' }}>Attended Classes</th>
-                        <th style={{ padding: '0.75rem' }}>Total Classes</th>
-                        <th style={{ padding: '0.75rem' }}>%</th>
+                      <tr>
+                        <th>Code</th>
+                        <th>Section</th>
+                        <th>Course Name</th>
+                        <th>Faculty</th>
+                        <th>Schedule</th>
+                        <th>Enrollment</th>
+                        <th></th>
                       </tr>
                     </thead>
                     <tbody>
-                      {courseStudents.map(student => (
-                        <tr key={student.registration_id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '0.75rem' }}>
-                            <div style={{ fontWeight: 'bold' }}>{student.name}</div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{student.email}</div>
-                          </td>
-                          <td style={{ padding: '0.75rem' }}>
-                            <input 
-                              type="number" 
-                              value={attendanceFormData[student.registration_id]?.attended || 0} 
-                              onChange={(e) => handleAttendanceChange(student.registration_id, 'attended', e.target.value)}
-                              style={{ padding: '0.4rem', width: '80px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
-                            />
-                          </td>
-                          <td style={{ padding: '0.75rem' }}>
-                            <input 
-                              type="number" 
-                              value={attendanceFormData[student.registration_id]?.total || 0} 
-                              onChange={(e) => handleAttendanceChange(student.registration_id, 'total', e.target.value)}
-                              style={{ padding: '0.4rem', width: '80px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
-                            />
-                          </td>
-                          <td style={{ padding: '0.75rem' }}>
-                            {attendanceFormData[student.registration_id]?.total > 0 
-                              ? Math.round((attendanceFormData[student.registration_id].attended / attendanceFormData[student.registration_id].total) * 100)
-                              : 0}%
-                          </td>
-                        </tr>
-                      ))}
+                      {courses.map(c => {
+                        const pct = c.max_capacity > 0 ? Math.round((c.enrolled / c.max_capacity) * 100) : 0;
+                        const isMine = c.faculty_id === user?.id;
+                        return (
+                          <tr key={c.id}>
+                            <td><span className="pill pill-code">{c.code}</span></td>
+                            <td className="muted">{c.section || '—'}</td>
+                            <td style={{ fontWeight: 500 }}>{c.name}</td>
+                            <td className="secondary">{c.faculty_name}</td>
+                            <td className="muted">{c.schedule || '—'}</td>
+                            <td>
+                              <div className="att-bar-wrap">
+                                <div className="att-bar-track" style={{ width: 80 }}>
+                                  <div className="att-bar-fill" style={{ width: `${pct}%`, background: pct >= 90 ? 'var(--red)' : pct >= 60 ? 'var(--amber)' : 'var(--green)' }} />
+                                </div>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{c.enrolled}/{c.max_capacity}</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                                <button className="btn btn-secondary btn-sm" onClick={() => openEdit(c)}>Edit</button>
+                                <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c.id)}>Delete</button>
+                                {isMine && (
+                                  <>
+                                    <button className="btn btn-secondary btn-sm" onClick={() => openGrades(c)}>Grades</button>
+                                    <button className="btn btn-secondary btn-sm" onClick={() => openAttendance(c)}>Attendance</button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
-              </div>
-            )}
-          </section>
-        ) : managingGradesFor ? (
-          <section className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2>Manage Grades: {managingGradesFor.name}</h2>
-              <button className="btn" style={{ width: 'auto', backgroundColor: '#6b7280' }} onClick={() => setManagingGradesFor(null)}>Back to Courses</button>
-            </div>
-            {courseStudents.length === 0 ? (
-              <p>No students currently enrolled in this course.</p>
-            ) : (
-              <div>
-                <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input 
-                      type="text" 
-                      placeholder="New Test Name (e.g. Midterm)" 
-                      value={newTestName} 
-                      onChange={e => setNewTestName(e.target.value)}
-                      style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)' }}
-                    />
-                    <button onClick={handleAddTestColumn} className="btn" style={{ width: 'auto' }}>Add Test</button>
-                  </div>
-                  <button onClick={handleSaveAllGrades} className="btn" style={{ width: 'auto', background: '#10b981' }}>Save All Grades</button>
+              )}
+            </>
+          )}
+
+          {/* ── ADD/EDIT FORM ── */}
+          {view === 'addEdit' && (
+            <div className="form-panel">
+              <div className="form-panel-title">{editId ? 'Edit Course' : 'Create New Course'}</div>
+              <form onSubmit={handleSubmit}>
+                <div className="form-row">
+                  <div className="field"><label>Course Name</label><input name="name" value={formData.name} onChange={handleInput} required placeholder="e.g. Data Structures" /></div>
                 </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <div className="form-row cols-2">
+                  <div className="field"><label>Faculty</label><input name="faculty_name" value={formData.faculty_name} onChange={handleInput} required placeholder="Dr. Smith" /></div>
+                  <div className="field"><label>Course Code</label><input name="code" value={formData.code} onChange={handleInput} required placeholder="CS301" /></div>
+                </div>
+                <div className="form-row cols-3">
+                  <div className="field"><label>Section</label><input name="section" value={formData.section} onChange={handleInput} placeholder="A" /></div>
+                  <div className="field"><label>Credits</label><input name="credits" type="number" value={formData.credits} onChange={handleInput} required /></div>
+                  <div className="field"><label>Max Capacity</label><input name="max_capacity" type="number" value={formData.max_capacity} onChange={handleInput} required /></div>
+                </div>
+                <div className="form-row">
+                  <div className="field">
+                    <label>Days</label>
+                    <div className="checkbox-group">
+                      {DAYS.map(d => (
+                        <label key={d} className="checkbox-pill">
+                          <input type="checkbox" name="days" value={d} checked={formData.days.includes(d)} onChange={handleInput} />
+                          {d}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="form-row cols-2">
+                  <div className="field"><label>Start Date</label><input name="start_date" type="date" value={formData.start_date} onChange={handleInput} required /></div>
+                  <div className="field"><label>Time</label><input name="time" type="time" value={formData.time} onChange={handleInput} required /></div>
+                </div>
+                <div className="form-row">
+                  <div className="field"><label>Syllabus (optional)</label><textarea name="syllabus" value={formData.syllabus} onChange={handleInput} rows={3} placeholder="URL or description…" /></div>
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="btn btn-primary">{editId ? 'Update' : 'Create Course'}</button>
+                  <button type="button" className="btn btn-ghost" onClick={backToCourses}>Cancel</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* ── GRADES VIEW ── */}
+          {view === 'grades' && (
+            <>
+              <div className="action-row">
+                <input className="inline-input" value={newTest} onChange={e => setNewTest(e.target.value)} placeholder="Test name (e.g. Midterm)" style={{ width: 220 }} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTestCol())} />
+                <button className="btn btn-secondary btn-sm" onClick={addTestCol}>Add Column</button>
+              </div>
+              {students.length === 0 ? (
+                <div className="empty-state">No students enrolled in this course.</div>
+              ) : (
+                <div className="data-table-wrap">
+                  <table className="data-table">
                     <thead>
-                      <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-                        <th style={{ padding: '0.75rem' }}>Student Name</th>
-                        <th style={{ padding: '0.75rem' }}>Email</th>
-                        {testColumns.map(testName => (
-                          <th key={testName} style={{ padding: '0.75rem' }}>{testName}</th>
-                        ))}
+                      <tr>
+                        <th>Student</th>
+                        <th>Email</th>
+                        {testCols.map(t => <th key={t}>{t}</th>)}
                       </tr>
                     </thead>
                     <tbody>
-                      {courseStudents.map(student => (
-                        <tr key={student.student_id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '0.75rem' }}>{student.name}</td>
-                          <td style={{ padding: '0.75rem' }}>{student.email}</td>
-                          {testColumns.map(testName => (
-                            <td key={testName} style={{ padding: '0.75rem' }}>
-                                <input 
-                                  type="text" 
-                                  value={gradeFormData[student.student_id]?.[testName] || ''} 
-                                  onChange={(e) => handleGradeChange(student.student_id, testName, e.target.value)}
-                                  placeholder="Grade"
-                                  style={{ padding: '0.4rem', width: '80px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
-                                />
+                      {students.map(s => (
+                        <tr key={s.student_id}>
+                          <td style={{ fontWeight: 500 }}>{s.name}</td>
+                          <td className="secondary">{s.email}</td>
+                          {testCols.map(t => (
+                            <td key={t}>
+                              <input
+                                className="num-input"
+                                value={gradeData[s.student_id]?.[t] || ''}
+                                onChange={e => setGradeData(d => ({ ...d, [s.student_id]: { ...d[s.student_id], [t]: e.target.value } }))}
+                                placeholder="—"
+                                style={{ width: 72 }}
+                              />
                             </td>
                           ))}
                         </tr>
@@ -396,131 +355,83 @@ const AdminDashboard = ({ theme, toggleTheme }) => {
                     </tbody>
                   </table>
                 </div>
+              )}
+            </>
+          )}
+
+          {/* ── ATTENDANCE VIEW ── */}
+          {view === 'attendance' && (
+            <>
+              <div className="action-row">
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Set total classes for all:</span>
+                <input className="inline-input num-input" type="number" value={bulkTotal} onChange={e => setBulkTotal(e.target.value)} placeholder="e.g. 36" style={{ width: 80 }} />
+                <button className="btn btn-secondary btn-sm" onClick={applyBulk}>Apply to all</button>
               </div>
-            )}
-          </section>
-        ) : showForm ? (
-          <section className="card" style={{ marginBottom: '2rem' }}>
-            <h2>{editingCourse ? 'Edit Course' : 'Add New Course'}</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Course Name</label>
-                <input type="text" name="name" value={formData.name} onChange={handleInputChange} required />
-              </div>
-              <div className="form-group">
-                <label>Faculty Name</label>
-                <input type="text" name="faculty_name" value={formData.faculty_name} onChange={handleInputChange} required />
-              </div>
-              <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
-                  <label>Course Code</label>
-                  <input type="text" name="code" value={formData.code} onChange={handleInputChange} required />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label>Section</label>
-                  <input type="text" name="section" value={formData.section} onChange={handleInputChange} required placeholder="e.g. A, 1, Morning" />
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Schedule</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '0.5rem', marginBottom: '1rem' }}>
-                  {daysOfWeek.map(day => (
-                    <label key={day} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.9rem', cursor: 'pointer' }}>
-                      <input 
-                        type="checkbox" 
-                        name="days" 
-                        value={day} 
-                        checked={formData.days.includes(day)} 
-                        onChange={handleInputChange} 
-                      />
-                      {day}
-                    </label>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <div style={{ flex: 1 }}>
-                    <label>Start Date</label>
-                    <input type="date" name="start_date" value={formData.start_date} onChange={handleInputChange} required />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label>Time</label>
-                    <input type="time" name="time" value={formData.time} onChange={handleInputChange} required />
-                  </div>
-                </div>
-              </div>
-              <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
-                  <label>Credits</label>
-                  <input type="number" name="credits" value={formData.credits} onChange={handleInputChange} required />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label>Max Capacity</label>
-                  <input type="number" name="max_capacity" value={formData.max_capacity} onChange={handleInputChange} required />
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Syllabus (Optional URL or Text)</label>
-                <textarea name="syllabus" value={formData.syllabus} onChange={handleInputChange} rows="3" style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid #e5e7eb' }}></textarea>
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <button type="submit" className="btn" style={{ flex: 1 }}>{editingCourse ? 'Update Course' : 'Save Course'}</button>
-                <button type="button" className="btn" style={{ flex: 1, backgroundColor: '#6b7280' }} onClick={resetForm}>Cancel</button>
-              </div>
-            </form>
-          </section>
-        ) : (
-          <section className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2>Manage Courses</h2>
-              <button className="btn" style={{ width: 'auto' }} onClick={() => setShowForm(true)}>Add New Course</button>
-            </div>
-            
-            {courses.length === 0 ? (
-              <p>No courses created yet.</p>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                      <th style={{ padding: '0.75rem' }}>Code</th>
-                      <th style={{ padding: '0.75rem' }}>Section</th>
-                      <th style={{ padding: '0.75rem' }}>Name</th>
-                      <th style={{ padding: '0.75rem' }}>Faculty</th>
-                      <th style={{ padding: '0.75rem' }}>Schedule</th>
-                      <th style={{ padding: '0.75rem' }}>Cap</th>
-                      <th style={{ padding: '0.75rem' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {courses.map(course => (
-                      <tr key={course.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                        <td style={{ padding: '0.75rem' }}><strong>{course.code}</strong></td>
-                        <td style={{ padding: '0.75rem' }}>{course.section}</td>
-                        <td style={{ padding: '0.75rem' }}>{course.name}</td>
-                        <td style={{ padding: '0.75rem' }}>{course.faculty_name}</td>
-                        <td style={{ padding: '0.75rem' }}>{course.schedule}</td>
-                        <td style={{ padding: '0.75rem' }}>{course.max_capacity}</td>
-                        <td style={{ padding: '0.75rem', display: 'flex', gap: '0.5rem' }}>
-                          <button onClick={() => handleEditClick(course)} style={{ padding: '0.25rem 0.5rem', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
-                          <button onClick={() => handleDeleteClick(course.id)} style={{ padding: '0.25rem 0.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
-                          {course.faculty_id === user?.id && (
-                            <>
-                              <button onClick={() => handleManageGrades(course)} style={{ padding: '0.25rem 0.5rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Grades</button>
-                              <button onClick={() => handleManageAttendance(course)} style={{ padding: '0.25rem 0.5rem', background: '#f59e0b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Attendance</button>
-                            </>
-                          )}
-                        </td>
+              {students.length === 0 ? (
+                <div className="empty-state">No students enrolled.</div>
+              ) : (
+                <div className="data-table-wrap">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Student</th>
+                        <th>Email</th>
+                        <th>Attended</th>
+                        <th>Total</th>
+                        <th>%</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        )}
-      </main>
+                    </thead>
+                    <tbody>
+                      {students.map(s => {
+                        const a = attData[s.registration_id];
+                        const pct = a?.total > 0 ? Math.round((a.attended / a.total) * 100) : 0;
+                        const color = pct >= 75 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+                        return (
+                          <tr key={s.registration_id}>
+                            <td style={{ fontWeight: 500 }}>{s.name}</td>
+                            <td className="secondary">{s.email}</td>
+                            <td>
+                              <input
+                                type="number" className="num-input"
+                                value={a?.attended || 0}
+                                onChange={e => setAttData(d => ({ ...d, [s.registration_id]: { ...d[s.registration_id], attended: parseInt(e.target.value) || 0 } }))}
+                                style={{ width: 72 }}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="number" className="num-input"
+                                value={a?.total || 0}
+                                onChange={e => setAttData(d => ({ ...d, [s.registration_id]: { ...d[s.registration_id], total: parseInt(e.target.value) || 0 } }))}
+                                style={{ width: 72 }}
+                              />
+                            </td>
+                            <td>
+                              <div className="att-bar-wrap">
+                                <div className="att-bar-track">
+                                  <div className="att-bar-fill" style={{ width: `${pct}%`, background: color }} />
+                                </div>
+                                <span style={{ fontSize: '0.72rem', color, minWidth: 32 }}>{pct}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+
+        </div>
+      </div>
+
+      {toast && (
+        <div className={`toast toast-${toast.type}`}>
+          {toast.type === 'success' ? '✓' : '✕'} {toast.msg}
+        </div>
+      )}
     </div>
   );
-};
-
-export default AdminDashboard;
+}
